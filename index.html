@@ -1,11 +1,9 @@
-from pathlib import Path
-
-html = r'''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>人狼ゲーム</title>
+<title>人狼ゲーム 完全版</title>
 <style>
 *{box-sizing:border-box}
 body{
@@ -80,13 +78,21 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .resultBox{
   white-space:pre-line;
   text-align:center;
-  background:#052e16;
-  border:2px solid #22c55e;
   border-radius:18px;
   padding:20px;
   font-size:22px;
   font-weight:900;
   margin:14px 0;
+}
+.resultVillage{
+  background:#052e2b;
+  border:2px solid #22c55e;
+  color:#ecfdf5;
+}
+.resultWolf{
+  background:#450a0a;
+  border:2px solid #ef4444;
+  color:#fef2f2;
 }
 .playerCard{
   background:#111827;
@@ -111,24 +117,24 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
 
 <body>
 <header>
-  <h1>人狼ゲーム</h1>
-  <div class="note">Web版</div>
+  <h1>人狼ゲーム 完全版</h1>
+  <div class="note">4〜15人 / 配役自由 / 1台回し / ホストあり・ホスト不要</div>
 </header>
 
 <main>
 
 <section id="home" class="card">
-  <h2>ゲームを開始するには下のボタンを押してください。</h2>
-  <button onclick="show('localType')">ゲーム開始</button>
+  <h2>モード選択</h2>
+  <button onclick="show('localType')">1つのデバイスを回して遊ぶ</button>
 </section>
 
 <section id="localType" class="card hidden">
-  <h2>ゲームホストをやる人はいますか？</h2>
+  <h2>1つのデバイスを回すモード</h2>
 
   <button onclick="startSetup('host')">ゲームホストありモード</button>
   <p class="note">
     役職確認と夜アクションは端末を順番に回します。<br>
-    投票・追放はホストが管理します。ホストは全プレイヤーの役職を確認できます。
+    投票・追放はホストが管理します。ホスト用の全プレイヤー表示は折りたたみ式です。
   </p>
 
   <button class="orange" onclick="startSetup('auto')">ゲームホスト不要モード</button>
@@ -144,7 +150,7 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
   <div class="card">
     <h2 id="setupTitle">ゲーム設定</h2>
     <label>人数 4〜15人</label>
-    <input id="playerCount" type="number" min="4" max="15" value="6">
+    <input id="playerCount" type="number" min="4" max="15" value="6" oninput="saveSettings()">
     <button onclick="applyPlayerCount()">人数を反映</button>
     <div id="playerInputs"></div>
   </div>
@@ -154,6 +160,7 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
     <p class="note">役職の合計がプレイヤー人数と同じになるようにしてください。</p>
     <div id="roleInputs" class="grid"></div>
     <button class="green" onclick="setRecommendedRoles()">おすすめ配役にする</button>
+    <button class="gray" onclick="clearSavedSettings()">保存した設定を削除</button>
     <button onclick="startGame()">ゲーム開始</button>
     <button class="gray" onclick="show('localType')">戻る</button>
   </div>
@@ -186,9 +193,17 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
   <div id="hostPanel" class="card hidden">
     <h2>ホスト用</h2>
     <button class="gray" onclick="toggleHostPlayers()">全プレイヤー表示 / 非表示</button>
+
     <div id="hostPlayersWrap" class="hidden">
       <h3>全プレイヤー</h3>
       <div id="hostPlayers"></div>
+
+      <hr>
+
+      <h3>手動修正</h3>
+      <select id="manualTarget"></select>
+      <button class="red" onclick="manualKill()">死亡にする</button>
+      <button class="green" onclick="manualRevive()">生存に戻す</button>
     </div>
 
     <hr>
@@ -196,13 +211,6 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
     <h3>追放処理</h3>
     <select id="executeTarget"></select>
     <button class="red" onclick="hostExecute()">選んだ人を追放する</button>
-
-    <hr>
-
-    <h3>手動修正</h3>
-    <select id="manualTarget"></select>
-    <button class="red" onclick="manualKill()">死亡にする</button>
-    <button class="green" onclick="manualRevive()">生存に戻す</button>
   </div>
 
   <div class="card">
@@ -254,7 +262,6 @@ let passIndex = 0;
 let passPlayers = [];
 let tempVotes = {};
 let tempActions = {};
-let pendingAction = null;
 
 function show(id){
   ["home","localType","setup","reveal","game","passScreen"].forEach(x => $(x).classList.add("hidden"));
@@ -265,11 +272,54 @@ function resetPage(){
   location.reload();
 }
 
+
+const SAVE_KEY = "werewolf_local_settings_v1";
+
+function saveSettings(){
+  try{
+    const count = Number($("playerCount")?.value || 6);
+    const names = [...document.querySelectorAll("#playerInputs input")].map(x=>x.value);
+    const roles = {};
+    document.querySelectorAll(".roleCount").forEach(input=>{
+      roles[input.dataset.role] = Number(input.value) || 0;
+    });
+
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      count,
+      names,
+      roles
+    }));
+  }catch(e){
+    console.warn("設定保存に失敗しました", e);
+  }
+}
+
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){
+    console.warn("設定読み込みに失敗しました", e);
+    return null;
+  }
+}
+
+function clearSavedSettings(){
+  localStorage.removeItem(SAVE_KEY);
+  alert("保存した設定を削除しました。");
+  applyPlayerCount();
+}
+
 function startSetup(mode){
   gameMode = mode;
   $("setupTitle").textContent = mode === "host"
     ? "ゲームホストありモード：設定"
     : "ゲームホスト不要モード：設定";
+  const saved = loadSettings();
+  if(saved && saved.count){
+    $("playerCount").value = saved.count;
+  }
   show("setup");
   applyPlayerCount();
 }
@@ -297,34 +347,39 @@ function recommendedRoles(n){
 
 function applyPlayerCount(){
   const n = clampCount();
+  const saved = loadSettings();
   const old = [...document.querySelectorAll("#playerInputs input")].map(x=>x.value);
+  const names = old.length ? old : (saved?.names || []);
+
   $("playerInputs").innerHTML = "";
 
   for(let i=0;i<n;i++){
     const div = document.createElement("div");
-    div.innerHTML = `<input id="player${i}" placeholder="プレイヤー名" value="${esc(old[i] || "プレイヤー" + (i+1))}">`;
+    div.innerHTML = `<input id="player${i}" placeholder="プレイヤー名" value="${esc(names[i] || "プレイヤー" + (i+1))}" oninput="saveSettings()">`;
     $("playerInputs").appendChild(div);
   }
 
-  makeRoleInputs(n);
+  makeRoleInputs(n, saved?.roles || null);
+  saveSettings();
 }
 
-function makeRoleInputs(n){
-  const r = recommendedRoles(n);
+function makeRoleInputs(n, savedRoles=null){
+  const r = savedRoles || recommendedRoles(n);
   $("roleInputs").innerHTML = "";
 
   ROLES.forEach(role=>{
     const div = document.createElement("div");
     div.innerHTML = `
       <label>${role}</label>
-      <input class="roleCount" data-role="${role}" type="number" min="0" max="15" value="${r[role] || 0}">
+      <input class="roleCount" data-role="${role}" type="number" min="0" max="15" value="${r[role] ?? 0}" oninput="saveSettings()">
     `;
     $("roleInputs").appendChild(div);
   });
 }
 
 function setRecommendedRoles(){
-  makeRoleInputs(clampCount());
+  makeRoleInputs(clampCount(), null);
+  saveSettings();
 }
 
 function collectRoles(){
@@ -347,6 +402,7 @@ function shuffle(arr){
 }
 
 function startGame(){
+  saveSettings();
   const n = clampCount();
   const pool = collectRoles();
 
@@ -576,7 +632,7 @@ function startVotePass(){
   passIndex = 0;
   tempVotes = {};
   show("passScreen");
-  renderPass();
+  renderPassIntro();
 }
 
 function startNightPass(){
@@ -585,17 +641,16 @@ function startNightPass(){
   passPlayers = alivePlayers();
   passIndex = 0;
   tempActions = {};
-  pendingAction = null;
   players.forEach(p=>p.result="");
   show("passScreen");
-  renderPass();
+  renderPassIntro();
 }
 
 function currentPassPlayer(){
   return passPlayers[passIndex];
 }
 
-function renderPass(){
+function renderPassIntro(){
   const p = currentPassPlayer();
 
   if(!p){
@@ -605,7 +660,33 @@ function renderPass(){
   }
 
   $("passTitle").textContent = p.name + " さんの番です";
-  $("passGuide").textContent = "本人に端末を渡して操作してください。終わったら次の人へ渡します。";
+
+  if(passType === "night"){
+    $("passGuide").textContent = "夜アクションの本人確認です。本人に端末を渡してから開始してください。";
+    $("passContent").innerHTML = `
+      <p class="note">他の人に画面を見られないようにしてください。</p>
+      <button onclick="renderPassAction()">夜アクションを開始</button>
+    `;
+  }else{
+    $("passGuide").textContent = "投票の本人確認です。本人に端末を渡してから開始してください。";
+    $("passContent").innerHTML = `
+      <p class="note">他の人に投票先を見られないようにしてください。</p>
+      <button onclick="renderPassAction()">投票を開始</button>
+    `;
+  }
+}
+
+function renderPassAction(){
+  const p = currentPassPlayer();
+
+  if(!p){
+    if(passType === "vote") finishVotePass();
+    else finishNightPass();
+    return;
+  }
+
+  $("passTitle").textContent = p.name + " さんの番です";
+  $("passGuide").textContent = "操作が終わったら、次の人へ端末を渡してください。";
 
   if(passType === "vote"){
     const opts = alivePlayers()
@@ -697,7 +778,7 @@ function submitVote(){
   const p = currentPassPlayer();
   tempVotes[p.id] = $("passTarget").value;
   passIndex++;
-  renderPass();
+  renderPassIntro();
 }
 
 function finishVotePass(){
@@ -728,30 +809,32 @@ function submitNightAction(){
 
   if(p.role === "占い師"){
     const t = players.find(x=>x.id===target);
+    const isWolf = t && t.role === "人狼";
     const result = t
-      ? `${t.name} は ${t.role === "人狼" ? "人狼" : "人狼ではない"}。`
+      ? `${t.name} は ${isWolf ? "人狼" : "人狼ではない"}。`
       : "結果なし。";
 
     p.result = result;
     tempActions[p.id] = target;
 
     $("passContent").innerHTML = `
-      <div class="resultBox">占い結果\n${esc(result)}</div>
+      <div class="resultBox ${isWolf ? "resultWolf" : "resultVillage"}">占い結果\n${esc(result)}</div>
       <button class="green" onclick="finishCurrentNightPlayer()">結果を隠して次の人へ</button>
     `;
     return;
   }
 
   if(p.role === "霊媒師"){
+    const isWolf = lastExecuted && lastExecuted.role === "人狼";
     const result = lastExecuted
-      ? `${lastExecuted.name} は ${lastExecuted.role === "人狼" ? "人狼" : "人狼ではない"}。`
+      ? `${lastExecuted.name} は ${isWolf ? "人狼" : "人狼ではない"}。`
       : "まだ霊媒結果はありません。";
 
     p.result = result;
     tempActions[p.id] = "done";
 
     $("passContent").innerHTML = `
-      <div class="resultBox">霊媒結果\n${esc(result)}</div>
+      <div class="resultBox ${isWolf ? "resultWolf" : "resultVillage"}">霊媒結果\n${esc(result)}</div>
       <button class="green" onclick="finishCurrentNightPlayer()">結果を隠して次の人へ</button>
     `;
     return;
@@ -763,7 +846,7 @@ function submitNightAction(){
 
 function finishCurrentNightPlayer(){
   passIndex++;
-  renderPass();
+  renderPassIntro();
 }
 
 function finishNightPass(){
@@ -807,8 +890,3 @@ show("home");
 </script>
 </body>
 </html>
-'''
-
-path = Path("/mnt/data/index_local_only_fixed.html")
-path.write_text(html, encoding="utf-8")
-print(path)
