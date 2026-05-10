@@ -1028,5 +1028,29 @@ goHome();
 
 </script>
 
+  <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyBX06PoGokEBkly0yqqPDUDzyGIwrnk4Ug",
+    authDomain: "werewolf-game-dbbb6.firebaseapp.com",
+    projectId: "werewolf-game-dbbb6",
+    storageBucket: "werewolf-game-dbbb6.firebasestorage.app",
+    messagingSenderId: "1015226107681",
+    appId: "1:1015226107681:web:a3e9026a8b2db8bd51a060",
+    measurementId: "G-00GFRL17N1"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+  
 </body>
 </html>
