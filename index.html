@@ -2,1055 +2,663 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>人狼ゲーム 完全プレイ版</title>
-
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>オンライン人狼ゲーム</title>
 <style>
-*{
-  box-sizing:border-box;
-}
-
-body{
-  margin:0;
-  font-family:system-ui,sans-serif;
-  background:linear-gradient(135deg,#111827,#020617);
-  color:white;
-}
-
-header{
-  padding:18px;
-  background:#020617cc;
-  position:sticky;
-  top:0;
-  z-index:10;
-}
-
-main{
-  max-width:900px;
-  margin:auto;
-  padding:16px;
-}
-
-.card{
-  background:#1f2937;
-  border:1px solid #374151;
-  border-radius:18px;
-  padding:16px;
-  margin:14px 0;
-}
-
-button,input,select{
-  width:100%;
-  padding:13px;
-  margin:7px 0;
-  border-radius:12px;
-  border:1px solid #4b5563;
-  font-size:16px;
-}
-
-input,select{
-  background:#111827;
-  color:white;
-}
-
-button{
-  background:#2563eb;
-  color:white;
-  font-weight:700;
-  cursor:pointer;
-}
-
-button.secondary{
-  background:#4b5563;
-}
-
-button.green{
-  background:#16a34a;
-}
-
-button.danger{
-  background:#dc2626;
-}
-
-button.purple{
-  background:#7c3aed;
-}
-
-.hidden{
-  display:none!important;
-}
-
-.grid{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:10px;
-}
-
-@media(min-width:700px){
-  .grid{
-    grid-template-columns:1fr 1fr;
-  }
-}
-
-.row{
-  display:flex;
-  gap:8px;
-}
-
-.note{
-  color:#cbd5e1;
-  line-height:1.7;
-  font-size:14px;
-}
-
-.big{
-  font-size:24px;
-  font-weight:800;
-}
-
-.roleBox{
-  white-space:pre-line;
-  text-align:center;
-  background:#111827;
-  border:2px solid #60a5fa;
-  border-radius:18px;
-  padding:24px;
-  font-size:28px;
-  font-weight:800;
-  margin:14px 0;
-}
-
-.playerCard{
-  background:#111827;
-  border:1px solid #374151;
-  border-radius:14px;
-  padding:12px;
-  margin:8px 0;
-}
-
-.dead{
-  opacity:.45;
-  text-decoration:line-through;
-}
-
-.badge{
-  display:inline-block;
-  background:#374151;
-  border-radius:999px;
-  padding:7px 11px;
-  margin:4px;
-}
-
-.log{
-  background:#020617;
-  padding:12px;
-  border-radius:12px;
-  max-height:240px;
-  overflow:auto;
-  white-space:pre-line;
-}
-
-hr{
-  border:0;
-  border-top:1px solid #374151;
-  margin:14px 0;
-}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:#020617;color:white}
+header{padding:16px;background:#111827;position:sticky;top:0;z-index:10}
+main{max-width:900px;margin:auto;padding:16px}
+.card{background:#1f2937;border:1px solid #374151;border-radius:16px;padding:16px;margin:14px 0}
+button,input,select{width:100%;padding:13px;margin:7px 0;border-radius:12px;border:1px solid #4b5563;font-size:16px}
+input,select{background:#111827;color:white}
+button{background:#2563eb;color:white;font-weight:700}
+button.green{background:#16a34a}
+button.red{background:#dc2626}
+button.gray{background:#4b5563}
+.hidden{display:none!important}
+.badge{display:inline-block;background:#374151;border-radius:999px;padding:7px 11px;margin:4px}
+.dead{opacity:.45;text-decoration:line-through}
+.role{font-size:28px;font-weight:900;text-align:center;background:#020617;border:2px solid #60a5fa;border-radius:16px;padding:24px;white-space:pre-line}
+.note{color:#cbd5e1;line-height:1.7}
+.log{background:#020617;padding:12px;border-radius:12px;white-space:pre-line;max-height:220px;overflow:auto}
 </style>
 </head>
 
 <body>
-
 <header>
-  <h1>人狼ゲーム 完全プレイ版</h1>
-  <div class="note">
-    4〜15人対応 / プレイヤー名変更可 / 配役自由 / Kahoot風デモ対応
-  </div>
+<h1>オンライン人狼ゲーム</h1>
+<div class="note">Firebase対応 / GMなし自動進行</div>
 </header>
 
 <main>
 
 <section id="home" class="card">
-  <h2>モード選択</h2>
-
-  <button onclick="openMode('local')">
-    1つの端末を回して遊ぶ
-  </button>
-
-  <button class="purple" onclick="openMode('online')">
-    各端末参加風デモ
-  </button>
-
-  <p class="note">
-    ※本物のオンライン同期ではありません。<br>
-    GitHub Pagesだけで動作するデモ版です。
-  </p>
+<h2>部屋</h2>
+<input id="nameInput" placeholder="あなたの名前">
+<button class="green" onclick="createRoom()">部屋を作る</button>
+<input id="roomInput" placeholder="部屋コード">
+<button onclick="joinRoom()">部屋に参加</button>
+<p id="status" class="note"></p>
 </section>
 
-<section id="setup" class="hidden">
-
-  <div class="card">
-
-    <h2 id="setupTitle">ゲーム設定</h2>
-
-    <label>人数 (4〜15人)</label>
-
-    <input
-      id="playerCount"
-      type="number"
-      min="4"
-      max="15"
-      value="6"
-    >
-
-    <button onclick="applyPlayerCount()">
-      人数を反映
-    </button>
-
-    <div id="playerInputs"></div>
-
-  </div>
-
-  <div class="card">
-
-    <h2>役職人数</h2>
-
-    <div id="roleInputs" class="grid"></div>
-
-    <button class="green" onclick="autoRoles()">
-      おすすめ配役
-    </button>
-
-    <button onclick="startGame()">
-      ゲーム開始
-    </button>
-
-    <button class="secondary" onclick="goHome()">
-      戻る
-    </button>
-
-  </div>
-
-</section>
-
-<section id="reveal" class="hidden">
-
-  <div class="card">
-
-    <h2 id="revealName"></h2>
-
-    <div id="roleBox" class="roleBox hidden"></div>
-
-    <button id="showBtn" onclick="showRole()">
-      役職を見る
-    </button>
-
-    <button
-      id="nextBtn"
-      class="hidden"
-      onclick="nextReveal()"
-    >
-      次の人へ
-    </button>
-
-  </div>
-
+<section id="lobby" class="card hidden">
+<h2>ロビー</h2>
+<p>部屋コード：<span id="roomCodeText"></span></p>
+<div id="playersBox"></div>
+<button id="startBtn" class="green" onclick="startGame()">ゲーム開始</button>
+<button class="gray" onclick="location.reload()">退出</button>
 </section>
 
 <section id="game" class="hidden">
+<div class="card">
+<h2 id="phaseText"></h2>
+<p id="guide" class="note"></p>
+<div id="winnerBox" class="role hidden"></div>
+</div>
 
-  <div class="card">
+<div class="card">
+<h2>あなたの役職</h2>
+<div id="myRole" class="role"></div>
+</div>
 
-    <h2>ゲーム進行</h2>
+<div class="card" id="actionCard">
+<h2>行動</h2>
+<div id="actionArea"></div>
+</div>
 
-    <div class="big" id="phaseText"></div>
+<div class="card">
+<h2>生存者</h2>
+<div id="aliveBox"></div>
+</div>
 
-    <p class="note" id="phaseGuide"></p>
-
-    <button onclick="nextPhase()">
-      次のフェーズ
-    </button>
-
-    <button
-      class="secondary"
-      onclick="toggleGM()"
-    >
-      GM情報 表示/非表示
-    </button>
-
-    <button
-      class="danger"
-      onclick="resetAll()"
-    >
-      最初から
-    </button>
-
-  </div>
-
-  <div class="card">
-
-    <h2>生存状況</h2>
-
-    <div id="aliveList"></div>
-
-  </div>
-
-  <div id="gmPanel" class="card hidden">
-
-    <h2>GM用情報</h2>
-
-    <div id="gmRoles"></div>
-
-    <hr>
-
-    <select id="target"></select>
-
-    <button
-      class="danger"
-      onclick="killPlayer('追放')"
-    >
-      追放
-    </button>
-
-    <button
-      class="danger"
-      onclick="killPlayer('襲撃')"
-    >
-      襲撃
-    </button>
-
-    <button
-      class="green"
-      onclick="revivePlayer()"
-    >
-      生存に戻す
-    </button>
-
-    <hr>
-
-    <h3>ログ</h3>
-
-    <div id="logBox" class="log"></div>
-
-  </div>
-
-</section>
-
-<section id="online" class="hidden">
-
-  <div class="card">
-
-    <h2>各端末参加風デモ</h2>
-
-    <button onclick="createRoom()">
-      部屋を作る
-    </button>
-
-    <div id="roomArea" class="hidden">
-
-      <p class="big">
-        部屋コード：
-        <span id="roomCode"></span>
-      </p>
-
-      <input
-        id="joinName"
-        placeholder="参加者名"
-      >
-
-      <button onclick="joinRoom()">
-        参加者追加
-      </button>
-
-      <div id="demoPlayers"></div>
-
-      <button
-        class="green"
-        onclick="useDemoPlayers()"
-      >
-        この参加者で開始
-      </button>
-
-    </div>
-
-    <button
-      class="secondary"
-      onclick="goHome()"
-    >
-      戻る
-    </button>
-
-  </div>
-
+<div class="card">
+<h2>ログ</h2>
+<div id="logBox" class="log"></div>
+</div>
 </section>
 
 </main>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import {
+  getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot,
+  serverTimestamp, runTransaction
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 
-const ROLES = [
-  "市民",
-  "占い師",
-  "霊媒師",
-  "騎士",
-  "人狼",
-  "狂人",
-  "狂信者"
-];
-
-const DESC = {
-  "市民":"特殊能力なし。",
-  "占い師":"夜に1人を占う。",
-  "霊媒師":"追放者を確認。",
-  "騎士":"1人を守る。",
-  "人狼":"夜に襲撃。",
-  "狂人":"人狼陣営。",
-  "狂信者":"人狼が分かる。"
+const firebaseConfig = {
+  apiKey: "AIzaSyBX06PoGokEBkly0yqqPDUDzyGIwrnk4Ug",
+  authDomain: "werewolf-game-dbbb6.firebaseapp.com",
+  projectId: "werewolf-game-dbbb6",
+  storageBucket: "werewolf-game-dbbb6.firebasestorage.app",
+  messagingSenderId: "1015226107681",
+  appId: "1:1015226107681:web:a3e9026a8b2db8bd51a060",
+  measurementId: "G-00GFRL17N1"
 };
 
-const phases = [
-  {
-    name:"昼",
-    guide:"議論してください。"
-  },
-  {
-    name:"投票",
-    guide:"追放者を決めます。"
-  },
-  {
-    name:"夜",
-    guide:"役職行動をしてください。"
-  },
-  {
-    name:"朝",
-    guide:"結果発表。"
-  }
-];
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-let players = [];
-let assignments = [];
-let revealIndex = 0;
-let day = 1;
-let phaseIndex = 0;
-let logs = [];
-let demoPlayers = [];
+const $ = id => document.getElementById(id);
 
-function $(id){
-  return document.getElementById(id);
+let myId = localStorage.getItem("wolf_my_id");
+if(!myId){
+  myId = Math.random().toString(36).slice(2,12);
+  localStorage.setItem("wolf_my_id", myId);
 }
+
+let roomCode = "";
+let roomRef = null;
+let room = null;
+
+const ROLES = ["市民","占い師","霊媒師","騎士","人狼","狂人","狂信者"];
+
+const DESC = {
+  "市民":"議論と投票で人狼を探す。",
+  "占い師":"夜に1人を占える。",
+  "霊媒師":"追放された人の正体が分かる。",
+  "騎士":"夜に1人を守れる。",
+  "人狼":"夜に1人を襲撃する。",
+  "狂人":"人狼陣営。人狼は分からない。",
+  "狂信者":"人狼陣営。人狼が誰か分かる。"
+};
 
 function hideAll(){
-  [
-    "home",
-    "setup",
-    "reveal",
-    "game",
-    "online"
-  ].forEach(id=>{
-    $(id).classList.add("hidden");
-  });
+  ["home","lobby","game"].forEach(id=>$(id).classList.add("hidden"));
 }
 
-function goHome(){
-  hideAll();
-  $("home").classList.remove("hidden");
-}
-
-function openMode(mode){
-
-  hideAll();
-
-  if(mode === "local"){
-
-    $("setup").classList.remove("hidden");
-
-    applyPlayerCount();
-
-  }else{
-
-    $("online").classList.remove("hidden");
-
-  }
-}
-
-function applyPlayerCount(){
-
-  let count = Number(
-    $("playerCount").value
-  );
-
-  if(isNaN(count)){
-    count = 4;
-  }
-
-  count = Math.max(
-    4,
-    Math.min(15,count)
-  );
-
-  $("playerCount").value = count;
-
-  const box = $("playerInputs");
-
-  box.innerHTML = "";
-
-  for(let i=0;i<count;i++){
-
-    const div = document.createElement("div");
-
-    div.className = "row";
-
-    div.innerHTML = `
-      <input
-        id="player${i}"
-        value="プレイヤー${i+1}"
-      >
-    `;
-
-    box.appendChild(div);
-
-  }
-
-  makeRoleInputs();
-
+function code(){
+  return Math.random().toString(36).slice(2,7).toUpperCase();
 }
 
 function recommendedRoles(n){
-
-  const r = {
-    "市民":0,
-    "占い師":1,
-    "霊媒師":0,
-    "騎士":0,
-    "人狼":1,
-    "狂人":0,
-    "狂信者":0
-  };
-
-  if(n >= 5){
-    r["騎士"] = 1;
-  }
-
-  if(n >= 7){
-    r["霊媒師"] = 1;
-  }
-
-  if(n >= 8){
-    r["人狼"] = 2;
-  }
-
-  if(n >= 9){
-    r["狂人"] = 1;
-  }
-
-  if(n >= 12){
-    r["人狼"] = 3;
-  }
-
-  let used = 0;
-
-  Object.values(r).forEach(v=>{
-    used += v;
-  });
-
+  const r = {"市民":0,"占い師":1,"霊媒師":0,"騎士":0,"人狼":1,"狂人":0,"狂信者":0};
+  if(n>=5) r["騎士"]=1;
+  if(n>=7) r["霊媒師"]=1;
+  if(n>=8) r["人狼"]=2;
+  if(n>=9) r["狂人"]=1;
+  if(n>=12) r["人狼"]=3;
+  if(n>=14){r["狂人"]=0;r["狂信者"]=1}
+  const used = Object.values(r).reduce((a,b)=>a+b,0);
   r["市民"] = n - used;
-
   return r;
 }
 
-function makeRoleInputs(){
+function shuffle(a){
+  a=[...a];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
 
-  const count = Number(
-    $("playerCount").value
-  );
+function makeRolePool(n){
+  const r = recommendedRoles(n);
+  const pool = [];
+  Object.keys(r).forEach(role=>{
+    for(let i=0;i<r[role];i++) pool.push(role);
+  });
+  return shuffle(pool);
+}
 
-  const roles = recommendedRoles(count);
+function getPlayers(){
+  return room?.players || {};
+}
 
-  const box = $("roleInputs");
+function alivePlayers(){
+  return Object.entries(getPlayers()).filter(([id,p])=>p.alive);
+}
 
-  box.innerHTML = "";
+function myPlayer(){
+  return getPlayers()[myId];
+}
 
-  ROLES.forEach(role=>{
+function publicName(p){
+  return p?.name || "名無し";
+}
 
-    const div = document.createElement("div");
+async function createRoom(){
+  const name = $("nameInput").value.trim();
+  if(!name){alert("名前を入力してください");return;}
 
-    div.innerHTML = `
-      <label>${role}</label>
+  roomCode = code();
+  roomRef = doc(db,"rooms",roomCode);
 
-      <input
-        class="roleCount"
-        data-role="${role}"
-        type="number"
-        min="0"
-        max="15"
-        value="${roles[role] || 0}"
-      >
-    `;
-
-    box.appendChild(div);
-
+  await setDoc(roomRef,{
+    code:roomCode,
+    hostId:myId,
+    status:"lobby",
+    phase:"lobby",
+    day:1,
+    winner:"",
+    lastExecuted:null,
+    lastKilled:null,
+    log:["部屋を作成しました"],
+    createdAt:serverTimestamp(),
+    players:{
+      [myId]:{
+        name,
+        alive:true,
+        role:"",
+        vote:"",
+        action:"",
+        ready:false,
+        result:""
+      }
+    }
   });
 
+  listenRoom();
 }
 
-function autoRoles(){
-  makeRoleInputs();
-}
+async function joinRoom(){
+  const name = $("nameInput").value.trim();
+  const codeInput = $("roomInput").value.trim().toUpperCase();
 
-function collectRoles(){
+  if(!name){alert("名前を入力してください");return;}
+  if(!codeInput){alert("部屋コードを入力してください");return;}
 
-  const pool = [];
+  roomCode = codeInput;
+  roomRef = doc(db,"rooms",roomCode);
 
-  document
-    .querySelectorAll(".roleCount")
-    .forEach(input=>{
-
-      const role = input.dataset.role;
-
-      const num = Number(input.value);
-
-      for(let i=0;i<num;i++){
-        pool.push(role);
-      }
-
-    });
-
-  return pool;
-
-}
-
-function shuffle(arr){
-
-  const a = [...arr];
-
-  for(let i=a.length-1;i>0;i--){
-
-    const j = Math.floor(
-      Math.random()*(i+1)
-    );
-
-    [a[i],a[j]]=[a[j],a[i]];
-
-  }
-
-  return a;
-
-}
-
-function startGame(){
-
-  const count = Number(
-    $("playerCount").value
-  );
-
-  players = [];
-
-  for(let i=0;i<count;i++){
-
-    players.push({
-      name:
-        $("player"+i).value.trim()
-        || ("プレイヤー"+(i+1)),
-      alive:true
-    });
-
-  }
-
-  const rolePool = collectRoles();
-
-  if(rolePool.length !== count){
-
-    alert(
-      "役職人数の合計を"+
-      count+
-      "人にしてください"
-    );
-
+  const snap = await getDoc(roomRef);
+  if(!snap.exists()){
+    alert("部屋が見つかりません");
     return;
-
   }
 
-  if(!rolePool.includes("人狼")){
-
-    alert("人狼を1人以上入れてください");
-
+  const data = snap.data();
+  if(data.status !== "lobby" && !data.players?.[myId]){
+    alert("この部屋はすでに開始しています");
     return;
-
   }
 
-  const shuffled = shuffle(rolePool);
+  await updateDoc(roomRef,{
+    ["players."+myId]:{
+      name,
+      alive:true,
+      role:"",
+      vote:"",
+      action:"",
+      ready:false,
+      result:""
+    }
+  });
 
-  assignments = players.map((p,i)=>({
-    ...p,
-    role:shuffled[i]
-  }));
+  listenRoom();
+}
 
-  revealIndex = 0;
+function listenRoom(){
+  onSnapshot(roomRef,snap=>{
+    room = snap.data();
+    render();
+  });
+}
 
-  day = 1;
-
-  phaseIndex = 0;
-
-  logs = ["ゲーム開始"];
+function render(){
+  if(!room) return;
 
   hideAll();
 
-  $("reveal").classList.remove("hidden");
+  if(room.status === "lobby"){
+    $("lobby").classList.remove("hidden");
+    $("roomCodeText").textContent = room.code;
 
-  setupReveal();
+    const players = Object.values(getPlayers());
+    $("playersBox").innerHTML = players.map((p,i)=>`
+      <span class="badge">${i+1}. ${p.name}</span>
+    `).join("");
 
-}
-
-function setupReveal(){
-
-  const p = assignments[revealIndex];
-
-  $("revealName").textContent =
-    p.name + " さん";
-
-  $("roleBox").classList.add("hidden");
-
-  $("showBtn").classList.remove("hidden");
-
-  $("nextBtn").classList.add("hidden");
-
-}
-
-function showRole(){
-
-  const p = assignments[revealIndex];
-
-  let text =
-    p.role +
-    "\n" +
-    DESC[p.role];
-
-  if(
-    p.role === "人狼" ||
-    p.role === "狂信者"
-  ){
-
-    const wolves = assignments
-      .filter(x=>x.role==="人狼")
-      .map(x=>x.name)
-      .join("、");
-
-    text +=
-      "\n\n人狼：" +
-      wolves;
-
-  }
-
-  $("roleBox").textContent = text;
-
-  $("roleBox").classList.remove("hidden");
-
-  $("showBtn").classList.add("hidden");
-
-  $("nextBtn").classList.remove("hidden");
-
-}
-
-function nextReveal(){
-
-  revealIndex++;
-
-  if(revealIndex >= assignments.length){
-
-    hideAll();
-
-    $("game").classList.remove("hidden");
-
-    renderGame();
-
+    $("startBtn").classList.toggle("hidden", room.hostId !== myId);
     return;
-
   }
 
-  setupReveal();
+  $("game").classList.remove("hidden");
 
-}
-
-function renderGame(){
-
-  const ph = phases[phaseIndex];
+  const me = myPlayer();
+  if(!me){
+    $("phaseText").textContent = "観戦中";
+    return;
+  }
 
   $("phaseText").textContent =
-    day + "日目 " + ph.name;
+    room.winner ? "ゲーム終了" : `${room.day}日目：${phaseName(room.phase)}`;
 
-  $("phaseGuide").textContent =
-    ph.guide;
+  $("guide").textContent = guideText(room.phase);
 
-  $("aliveList").innerHTML =
-    assignments.map((p,i)=>`
-      <div class="
-        playerCard
-        ${p.alive ? "" : "dead"}
-      ">
-        ${i+1}. ${p.name}
-        ：
-        ${p.alive ? "生存" : "死亡"}
-      </div>
-    `).join("");
-
-  $("gmRoles").innerHTML =
-    assignments.map(p=>`
-      <span class="
-        badge
-        ${p.alive ? "" : "dead"}
-      ">
-        ${p.name}
-        ：
-        ${p.role}
-      </span>
-    `).join("");
-
-  $("target").innerHTML =
-    assignments.map((p,i)=>`
-      <option value="${i}">
-        ${p.name}
-      </option>
-    `).join("");
-
-  $("logBox").textContent =
-    logs.join("\n");
-
-  checkWinner();
-
-}
-
-function nextPhase(){
-
-  phaseIndex++;
-
-  if(phaseIndex >= phases.length){
-
-    phaseIndex = 0;
-
-    day++;
-
+  if(room.winner){
+    $("winnerBox").classList.remove("hidden");
+    $("winnerBox").textContent = room.winner;
+  }else{
+    $("winnerBox").classList.add("hidden");
   }
 
-  renderGame();
+  let roleText = `${me.role}\n${DESC[me.role] || ""}`;
 
-}
-
-function toggleGM(){
-
-  $("gmPanel")
-    .classList
-    .toggle("hidden");
-
-}
-
-function killPlayer(type){
-
-  const i = Number(
-    $("target").value
-  );
-
-  assignments[i].alive = false;
-
-  logs.push(
-    day +
-    "日目：" +
-    assignments[i].name +
-    " が" +
-    type +
-    "された"
-  );
-
-  renderGame();
-
-}
-
-function revivePlayer(){
-
-  const i = Number(
-    $("target").value
-  );
-
-  assignments[i].alive = true;
-
-  logs.push(
-    assignments[i].name +
-    " を生存に戻した"
-  );
-
-  renderGame();
-
-}
-
-function checkWinner(){
-
-  const alive =
-    assignments.filter(p=>p.alive);
-
-  const wolves =
-    alive.filter(
-      p=>p.role==="人狼"
-    ).length;
-
-  const villagers =
-    alive.length - wolves;
-
-  if(wolves === 0){
-
-    $("phaseGuide").textContent +=
-      " 市民陣営の勝利";
-
-  }else if(wolves >= villagers){
-
-    $("phaseGuide").textContent +=
-      " 人狼陣営の勝利";
-
+  if(me.role === "人狼" || me.role === "狂信者"){
+    const wolves = Object.values(getPlayers())
+      .filter(p=>p.role==="人狼")
+      .map(p=>p.name)
+      .join("、");
+    roleText += `\n\n人狼：${wolves}`;
   }
 
+  if(me.result){
+    roleText += `\n\n結果：${me.result}`;
+  }
+
+  $("myRole").textContent = roleText;
+
+  $("aliveBox").innerHTML = Object.values(getPlayers()).map(p=>`
+    <span class="badge ${p.alive ? "" : "dead"}">
+      ${p.name}：${p.alive ? "生存" : "死亡"}
+    </span>
+  `).join("");
+
+  $("logBox").textContent = (room.log || []).join("\n");
+
+  renderAction();
 }
 
-function resetAll(){
-
-  players = [];
-
-  assignments = [];
-
-  logs = [];
-
-  goHome();
-
+function phaseName(p){
+  return {
+    reveal:"役職確認",
+    day:"昼",
+    vote:"投票",
+    night:"夜",
+    result:"朝"
+  }[p] || p;
 }
 
-function createRoom(){
-
-  $("roomArea")
-    .classList
-    .remove("hidden");
-
-  $("roomCode").textContent =
-    Math.random()
-      .toString(36)
-      .substring(2,7)
-      .toUpperCase();
-
-  demoPlayers = [];
-
-  renderDemoPlayers();
-
+function guideText(p){
+  return {
+    reveal:"自分の役職を確認したら準備完了を押してください。",
+    day:"話し合いの時間です。全員が進行ボタンを押すと投票へ進みます。",
+    vote:"追放したい人に投票してください。全員投票で自動処刑されます。",
+    night:"役職行動をしてください。全員行動で自動処理されます。",
+    result:"朝です。結果を確認したら次の日へ進んでください。"
+  }[p] || "";
 }
 
-function joinRoom(){
+function renderAction(){
+  const me = myPlayer();
+  const area = $("actionArea");
 
-  const name =
-    $("joinName")
-      .value
-      .trim();
-
-  if(!name){
-
-    alert("名前を入力");
-
+  if(room.winner){
+    area.innerHTML = `<button onclick="location.reload()">最初に戻る</button>`;
     return;
-
   }
 
-  if(demoPlayers.length >= 15){
-
-    alert("最大15人");
-
+  if(!me.alive){
+    area.innerHTML = `<p class="note">あなたは死亡しています。観戦してください。</p>`;
     return;
-
   }
 
-  demoPlayers.push(name);
-
-  $("joinName").value = "";
-
-  renderDemoPlayers();
-
-}
-
-function renderDemoPlayers(){
-
-  $("demoPlayers").innerHTML =
-    demoPlayers.map((p,i)=>`
-      <span class="badge">
-        ${i+1}. ${p}
-      </span>
-    `).join("");
-
-}
-
-function useDemoPlayers(){
-
-  if(demoPlayers.length < 4){
-
-    alert("4人以上必要");
-
+  if(room.phase === "reveal"){
+    area.innerHTML = `<button class="green" onclick="ready()">確認完了</button>`;
     return;
-
   }
 
-  hideAll();
+  if(room.phase === "day"){
+    area.innerHTML = `<button class="green" onclick="ready()">投票へ進む準備OK</button>`;
+    return;
+  }
 
-  $("setup")
-    .classList
-    .remove("hidden");
+  if(room.phase === "vote"){
+    const options = alivePlayers()
+      .filter(([id])=>id!==myId)
+      .map(([id,p])=>`<option value="${id}">${p.name}</option>`)
+      .join("");
 
-  $("playerCount").value =
-    demoPlayers.length;
-
-  $("playerInputs").innerHTML =
-    "";
-
-  demoPlayers.forEach((name,i)=>{
-
-    const div =
-      document.createElement("div");
-
-    div.className = "row";
-
-    div.innerHTML = `
-      <input
-        id="player${i}"
-        value="${name}"
-      >
+    area.innerHTML = `
+      <select id="voteTarget">${options}</select>
+      <button class="red" onclick="vote()">投票する</button>
     `;
+    return;
+  }
 
-    $("playerInputs")
-      .appendChild(div);
+  if(room.phase === "night"){
+    area.innerHTML = nightActionHTML(me);
+    return;
+  }
 
+  if(room.phase === "result"){
+    area.innerHTML = `<button class="green" onclick="ready()">次の日へ進む</button>`;
+  }
+}
+
+function nightActionHTML(me){
+  const alive = alivePlayers();
+
+  if(me.role === "人狼"){
+    const opts = alive
+      .filter(([id,p])=>p.role!=="人狼")
+      .map(([id,p])=>`<option value="${id}">${p.name}</option>`)
+      .join("");
+    return `<select id="nightTarget">${opts}</select><button class="red" onclick="nightAction()">襲撃する</button>`;
+  }
+
+  if(me.role === "占い師"){
+    const opts = alive
+      .filter(([id])=>id!==myId)
+      .map(([id,p])=>`<option value="${id}">${p.name}</option>`)
+      .join("");
+    return `<select id="nightTarget">${opts}</select><button class="green" onclick="nightAction()">占う</button>`;
+  }
+
+  if(me.role === "騎士"){
+    const opts = alive
+      .map(([id,p])=>`<option value="${id}">${p.name}</option>`)
+      .join("");
+    return `<select id="nightTarget">${opts}</select><button class="green" onclick="nightAction()">守る</button>`;
+  }
+
+  if(me.role === "霊媒師"){
+    return `<button class="green" onclick="nightAction()">霊媒結果を見る</button>`;
+  }
+
+  return `<button class="green" onclick="nightAction()">夜を終える</button>`;
+}
+
+async function startGame(){
+  await runTransaction(db,async tx=>{
+    const snap = await tx.get(roomRef);
+    const data = snap.data();
+    const ids = Object.keys(data.players);
+    if(ids.length < 4) throw "4人以上必要です";
+
+    const roles = makeRolePool(ids.length);
+    const players = {...data.players};
+
+    ids.forEach((id,i)=>{
+      players[id] = {
+        ...players[id],
+        alive:true,
+        role:roles[i],
+        vote:"",
+        action:"",
+        ready:false,
+        result:""
+      };
+    });
+
+    tx.update(roomRef,{
+      status:"playing",
+      phase:"reveal",
+      day:1,
+      winner:"",
+      players,
+      lastExecuted:null,
+      lastKilled:null,
+      log:[...data.log, "ゲーム開始"]
+    });
+  }).catch(e=>alert(e));
+}
+
+async function ready(){
+  await updateDoc(roomRef,{
+    ["players."+myId+".ready"]:true
+  });
+  await tryAdvance();
+}
+
+async function tryAdvance(){
+  await runTransaction(db,async tx=>{
+    const snap = await tx.get(roomRef);
+    const data = snap.data();
+    if(data.winner) return;
+
+    const players = data.players;
+    const alive = Object.entries(players).filter(([id,p])=>p.alive);
+    const allReady = alive.every(([id,p])=>p.ready);
+
+    if(!allReady) return;
+
+    Object.keys(players).forEach(id=>{
+      players[id].ready = false;
+      players[id].vote = "";
+      players[id].action = "";
+      players[id].result = "";
+    });
+
+    let phase = data.phase;
+    let day = data.day;
+
+    if(phase === "reveal") phase = "day";
+    else if(phase === "day") phase = "vote";
+    else if(phase === "result"){
+      phase = "day";
+      day++;
+    }
+
+    tx.update(roomRef,{players,phase,day});
+  });
+}
+
+async function vote(){
+  const target = $("voteTarget").value;
+  await updateDoc(roomRef,{
+    ["players."+myId+".vote"]:target
+  });
+  await resolveVote();
+}
+
+async function resolveVote(){
+  await runTransaction(db,async tx=>{
+    const snap = await tx.get(roomRef);
+    const data = snap.data();
+    if(data.phase !== "vote" || data.winner) return;
+
+    const players = data.players;
+    const alive = Object.entries(players).filter(([id,p])=>p.alive);
+
+    if(!alive.every(([id,p])=>p.vote)) return;
+
+    const count = {};
+    alive.forEach(([id,p])=>{
+      count[p.vote] = (count[p.vote] || 0) + 1;
+    });
+
+    const max = Math.max(...Object.values(count));
+    const tied = Object.keys(count).filter(id=>count[id]===max);
+    const executedId = tied[Math.floor(Math.random()*tied.length)];
+
+    players[executedId].alive = false;
+
+    Object.keys(players).forEach(id=>{
+      players[id].vote="";
+      players[id].ready=false;
+      players[id].action="";
+      players[id].result="";
+    });
+
+    const log = [...data.log, `${data.day}日目：${players[executedId].name} が追放された`];
+
+    const winner = judge(players);
+
+    tx.update(roomRef,{
+      players,
+      phase:winner ? "end" : "night",
+      winner,
+      lastExecuted:{
+        id:executedId,
+        name:players[executedId].name,
+        role:players[executedId].role
+      },
+      log
+    });
+  });
+}
+
+async function nightAction(){
+  const me = myPlayer();
+  let target = "";
+  const select = $("nightTarget");
+  if(select) target = select.value;
+
+  await updateDoc(roomRef,{
+    ["players."+myId+".action"]:target || "done"
   });
 
-  makeRoleInputs();
-
+  await resolveNight();
 }
 
-goHome();
+async function resolveNight(){
+  await runTransaction(db,async tx=>{
+    const snap = await tx.get(roomRef);
+    const data = snap.data();
+    if(data.phase !== "night" || data.winner) return;
+
+    const players = data.players;
+    const alive = Object.entries(players).filter(([id,p])=>p.alive);
+
+    if(!alive.every(([id,p])=>p.action)) return;
+
+    let killTarget = "";
+    const wolfVotes = {};
+
+    alive.forEach(([id,p])=>{
+      if(p.role==="人狼" && p.action){
+        wolfVotes[p.action]=(wolfVotes[p.action]||0)+1;
+      }
+    });
+
+    if(Object.keys(wolfVotes).length){
+      const max = Math.max(...Object.values(wolfVotes));
+      const tied = Object.keys(wolfVotes).filter(id=>wolfVotes[id]===max);
+      killTarget = tied[Math.floor(Math.random()*tied.length)];
+    }
+
+    const guard = alive.find(([id,p])=>p.role==="騎士")?.[1]?.action || "";
+
+    alive.forEach(([id,p])=>{
+      if(p.role==="占い師" && p.action && players[p.action]){
+        players[id].result =
+          `${players[p.action].name} は ${players[p.action].role==="人狼" ? "人狼" : "人狼ではない"}。`;
+      }
+
+      if(p.role==="霊媒師"){
+        if(data.lastExecuted){
+          players[id].result =
+            `${data.lastExecuted.name} は ${data.lastExecuted.role==="人狼" ? "人狼" : "人狼ではない"}。`;
+        }else{
+          players[id].result = "まだ霊媒結果はありません。";
+        }
+      }
+    });
+
+    let log = [...data.log];
+    let lastKilled = null;
+
+    if(killTarget && killTarget !== guard && players[killTarget]){
+      players[killTarget].alive = false;
+      lastKilled = {
+        id:killTarget,
+        name:players[killTarget].name,
+        role:players[killTarget].role
+      };
+      log.push(`${data.day}日目夜：${players[killTarget].name} が襲撃された`);
+    }else{
+      log.push(`${data.day}日目夜：襲撃は失敗した`);
+    }
+
+    Object.keys(players).forEach(id=>{
+      players[id].action="";
+      players[id].vote="";
+      players[id].ready=false;
+    });
+
+    const winner = judge(players);
+
+    tx.update(roomRef,{
+      players,
+      phase:winner ? "end" : "result",
+      winner,
+      lastKilled,
+      log
+    });
+  });
+}
+
+function judge(players){
+  const alive = Object.values(players).filter(p=>p.alive);
+  const wolves = alive.filter(p=>p.role==="人狼").length;
+  const others = alive.length - wolves;
+
+  if(wolves === 0) return "市民陣営の勝利";
+  if(wolves >= others) return "人狼陣営の勝利";
+  return "";
+}
+
+window.createRoom = createRoom;
+window.joinRoom = joinRoom;
+window.startGame = startGame;
+window.ready = ready;
+window.vote = vote;
+window.nightAction = nightAction;
 
 </script>
-
-  <script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
-
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyBX06PoGokEBkly0yqqPDUDzyGIwrnk4Ug",
-    authDomain: "werewolf-game-dbbb6.firebaseapp.com",
-    projectId: "werewolf-game-dbbb6",
-    storageBucket: "werewolf-game-dbbb6.firebasestorage.app",
-    messagingSenderId: "1015226107681",
-    appId: "1:1015226107681:web:a3e9026a8b2db8bd51a060",
-    measurementId: "G-00GFRL17N1"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-</script>
-  
 </body>
 </html>
