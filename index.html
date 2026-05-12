@@ -45,8 +45,8 @@ button{
   font-weight:800;
   cursor:pointer;
 }
-button:hover{filter:brightness(1.1)}
-button:disabled{opacity:.55;cursor:not-allowed}
+button:hover{filter:brightness(1.08)}
+button:disabled{opacity:.5;cursor:not-allowed}
 .green{background:#16a34a}
 .red{background:#dc2626}
 .gray{background:#4b5563}
@@ -85,27 +85,6 @@ button:disabled{opacity:.55;cursor:not-allowed}
   border-color:#ef4444;
   color:#fef2f2;
 }
-.choiceBtn{
-  background:#111827;
-  border:1px solid #64748b;
-  text-align:left;
-}
-.choiceBtn.selected{
-  background:#2563eb;
-  border-color:#93c5fd;
-}
-.choiceBtn.redChoice.selected{
-  background:#dc2626;
-  border-color:#fecaca;
-}
-.nameRow{
-  display:grid;
-  grid-template-columns:1fr 48px 48px;
-  gap:8px;
-  align-items:center;
-}
-.nameRow input{margin:7px 0}
-.nameRow button{margin:7px 0;padding:12px 0}
 .resultBox{
   white-space:pre-line;
   text-align:center;
@@ -143,13 +122,34 @@ button:disabled{opacity:.55;cursor:not-allowed}
 }
 .big{font-size:23px;font-weight:900}
 hr{border:0;border-top:1px solid #374151;margin:14px 0}
+.nameRow{
+  display:grid;
+  grid-template-columns:1fr 48px 48px;
+  gap:8px;
+  align-items:center;
+}
+.nameRow input,.nameRow button{margin:7px 0}
+.nameRow button{padding:12px 0}
+.choiceBtn{
+  background:#111827;
+  border:1px solid #64748b;
+  text-align:left;
+}
+.choiceBtn.selected{
+  background:#2563eb;
+  border-color:#93c5fd;
+}
+.choiceBtn.redChoice.selected{
+  background:#dc2626;
+  border-color:#fecaca;
+}
 </style>
 </head>
 
 <body>
 <header>
   <h1>人狼ゲーム 完全版</h1>
-  <div class="note">4〜15人 / 配役自由 / 1台回し / ホストあり・ホスト不要</div>
+  <div class="note">4〜15人 / 配役自由 / 1台回し / ホストあり・ホスト不要 / 設定保存</div>
 </header>
 
 <main>
@@ -181,8 +181,9 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
   <div class="card">
     <h2 id="setupTitle">ゲーム設定</h2>
     <label>人数 4〜15人</label>
-    <input id="playerCount" type="number" min="4" max="15" value="6" oninput="saveSettings()">
+    <input id="playerCount" type="number" min="4" max="15" value="6" onchange="applyPlayerCount()" oninput="saveSettings()">
     <button onclick="applyPlayerCount()">人数を反映</button>
+    <p class="note">プレイヤー名の右にある ↑ ↓ で順番を入れ替えできます。</p>
     <div id="playerInputs"></div>
   </div>
 
@@ -190,6 +191,7 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
     <h2>役職人数</h2>
     <p class="note">役職の合計がプレイヤー人数と同じになるようにしてください。</p>
     <div id="roleInputs" class="grid"></div>
+
     <button onclick="startGame()">ゲーム開始</button>
     <button class="green" onclick="setRecommendedRoles()">おすすめ配役にする</button>
     <button class="gray" onclick="clearSavedSettings()">保存した設定を削除</button>
@@ -223,6 +225,7 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
 
   <div id="hostPanel" class="card hidden">
     <h2>ホスト用</h2>
+
     <button class="gray" onclick="toggleHostPlayers()">全プレイヤー表示 / 非表示</button>
 
     <div id="hostPlayersWrap" class="hidden">
@@ -273,10 +276,18 @@ const DESC = {
   "狂信者":"人狼陣営。人狼が誰か分かる。"
 };
 
+const SAVE_KEY = "werewolf_local_settings_v2";
 const $ = id => document.getElementById(id);
-const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({
-  "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"
-}[m]));
+
+function esc(s){
+  return String(s ?? "").replace(/[&<>"']/g, m => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    "\"":"&quot;",
+    "'":"&#039;"
+  }[m]));
+}
 
 let gameMode = "host";
 let players = [];
@@ -293,9 +304,12 @@ let passIndex = 0;
 let passPlayers = [];
 let tempVotes = {};
 let tempActions = {};
+let selectedChoice = "";
 
 function show(id){
-  ["home","localType","setup","reveal","game","passScreen"].forEach(x => $(x).classList.add("hidden"));
+  ["home","localType","setup","reveal","game","passScreen"].forEach(x => {
+    $(x).classList.add("hidden");
+  });
   $(id).classList.remove("hidden");
 }
 
@@ -303,23 +317,17 @@ function resetPage(){
   location.reload();
 }
 
-
-const SAVE_KEY = "werewolf_local_settings_v1";
-
 function saveSettings(){
   try{
     const count = Number($("playerCount")?.value || 6);
-    const names = [...document.querySelectorAll("#playerInputs input")].map(x=>x.value);
+    const names = [...document.querySelectorAll("#playerInputs input")].map(x => x.value);
     const roles = {};
-    document.querySelectorAll(".roleCount").forEach(input=>{
+
+    document.querySelectorAll(".roleCount").forEach(input => {
       roles[input.dataset.role] = Number(input.value) || 0;
     });
 
-    localStorage.setItem(SAVE_KEY, JSON.stringify({
-      count,
-      names,
-      roles
-    }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({count,names,roles}));
   }catch(e){
     console.warn("設定保存に失敗しました", e);
   }
@@ -346,7 +354,15 @@ function clearSavedSettings(){
   $("playerCount").value = 6;
   $("playerInputs").innerHTML = "";
   $("roleInputs").innerHTML = "";
+
   applyPlayerCount(true);
+
+  try{
+    localStorage.removeItem(SAVE_KEY);
+  }catch(e){
+    console.warn("再削除に失敗しました", e);
+  }
+
   alert("保存した設定を削除しました。");
 }
 
@@ -355,10 +371,12 @@ function startSetup(mode){
   $("setupTitle").textContent = mode === "host"
     ? "ゲームホストありモード：設定"
     : "ゲームホスト不要モード：設定";
+
   const saved = loadSettings();
   if(saved && saved.count){
     $("playerCount").value = saved.count;
   }
+
   show("setup");
   applyPlayerCount();
 }
@@ -372,13 +390,26 @@ function clampCount(){
 }
 
 function recommendedRoles(n){
-  const r = {"市民":0,"占い師":1,"霊媒師":0,"騎士":0,"人狼":1,"狂人":0,"狂信者":0};
+  const r = {
+    "市民":0,
+    "占い師":1,
+    "霊媒師":0,
+    "騎士":0,
+    "人狼":1,
+    "狂人":0,
+    "狂信者":0
+  };
+
   if(n >= 5) r["騎士"] = 1;
   if(n >= 7) r["霊媒師"] = 1;
   if(n >= 8) r["人狼"] = 2;
   if(n >= 9) r["狂人"] = 1;
   if(n >= 12) r["人狼"] = 3;
-  if(n >= 14){ r["狂人"] = 0; r["狂信者"] = 1; }
+  if(n >= 14){
+    r["狂人"] = 0;
+    r["狂信者"] = 1;
+  }
+
   const used = Object.values(r).reduce((a,b)=>a+b,0);
   r["市民"] = Math.max(0, n - used);
   return r;
@@ -387,7 +418,7 @@ function recommendedRoles(n){
 function applyPlayerCount(forceDefault=false){
   const n = clampCount();
   const saved = forceDefault ? null : loadSettings();
-  const old = [...document.querySelectorAll("#playerInputs input")].map(x=>x.value);
+  const old = [...document.querySelectorAll("#playerInputs input")].map(x => x.value);
   const names = forceDefault ? [] : (old.length ? old : (saved?.names || []));
 
   $("playerInputs").innerHTML = "";
@@ -404,19 +435,22 @@ function applyPlayerCount(forceDefault=false){
   }
 
   makeRoleInputs(n, forceDefault ? null : (saved?.roles || null));
-  saveSettings();
+
+  if(!forceDefault){
+    saveSettings();
+  }
 }
 
 function movePlayer(index, direction){
   const inputs = [...document.querySelectorAll("#playerInputs input")];
-  const names = inputs.map(x=>x.value);
+  const names = inputs.map(x => x.value);
   const target = index + direction;
 
   if(target < 0 || target >= names.length) return;
 
   [names[index], names[target]] = [names[target], names[index]];
 
-  inputs.forEach((input,i)=>{
+  inputs.forEach((input,i) => {
     input.value = names[i];
   });
 
@@ -428,7 +462,7 @@ function makeRoleInputs(n, savedRoles=null){
   const r = savedRoles || recommendedRoles(n);
   $("roleInputs").innerHTML = "";
 
-  ROLES.forEach(role=>{
+  ROLES.forEach(role => {
     const div = document.createElement("div");
     div.innerHTML = `
       <label>${role}</label>
@@ -445,25 +479,33 @@ function setRecommendedRoles(){
 
 function collectRoles(){
   const pool = [];
-  document.querySelectorAll(".roleCount").forEach(input=>{
+
+  document.querySelectorAll(".roleCount").forEach(input => {
     const role = input.dataset.role;
     const num = Math.max(0, Number(input.value) || 0);
-    for(let i=0;i<num;i++) pool.push(role);
+
+    for(let i=0;i<num;i++){
+      pool.push(role);
+    }
   });
+
   return pool;
 }
 
 function shuffle(arr){
   const a = [...arr];
+
   for(let i=a.length-1;i>0;i--){
     const j = Math.floor(Math.random() * (i+1));
     [a[i],a[j]] = [a[j],a[i]];
   }
+
   return a;
 }
 
 function startGame(){
   saveSettings();
+
   const n = clampCount();
   const pool = collectRoles();
 
@@ -471,6 +513,7 @@ function startGame(){
     alert("役職の合計を " + n + " 人にしてください。現在は " + pool.length + " 人です。");
     return;
   }
+
   if(!pool.includes("人狼")){
     alert("人狼を最低1人入れてください。");
     return;
@@ -511,7 +554,9 @@ function setupReveal(){
 }
 
 function roleTeam(role){
-  return role === "人狼" || role === "狂人" || role === "狂信者" ? "wolf" : "village";
+  return role === "人狼" || role === "狂人" || role === "狂信者"
+    ? "wolf"
+    : "village";
 }
 
 function roleClassFor(role){
@@ -522,7 +567,11 @@ function roleTextFor(p){
   let text = p.role + "\n" + DESC[p.role];
 
   if(p.role === "人狼" || p.role === "狂信者"){
-    const wolves = players.filter(x=>x.role==="人狼").map(x=>x.name).join("、");
+    const wolves = players
+      .filter(x => x.role === "人狼")
+      .map(x => x.name)
+      .join("、");
+
     text += "\n\n人狼：" + wolves;
   }
 
@@ -535,6 +584,7 @@ function roleTextFor(p){
 
 function showRole(){
   const p = players[revealIndex];
+
   $("revealBox").textContent = roleTextFor(p);
   $("revealBox").className = "roleBox " + roleClassFor(p.role);
   $("revealBtn").classList.add("hidden");
@@ -543,21 +593,23 @@ function showRole(){
 
 function nextReveal(){
   revealIndex++;
+
   if(revealIndex >= players.length){
     show("game");
     renderGame();
     return;
   }
+
   setupReveal();
 }
 
 function alivePlayers(){
-  return players.filter(p=>p.alive);
+  return players.filter(p => p.alive);
 }
 
 function judge(){
   const alive = alivePlayers();
-  const wolves = alive.filter(p=>p.role==="人狼").length;
+  const wolves = alive.filter(p => p.role === "人狼").length;
   const others = alive.length - wolves;
 
   if(wolves === 0) return "市民陣営の勝利";
@@ -566,11 +618,17 @@ function judge(){
 }
 
 function phaseName(){
-  return {day:"昼", vote:"投票", night:"夜", result:"朝"}[phase] || phase;
+  return {
+    day:"昼",
+    vote:"投票",
+    night:"夜",
+    result:"朝"
+  }[phase] || phase;
 }
 
 function guide(){
   if(winner) return "ゲーム終了です。";
+
   if(gameMode === "host"){
     if(phase === "day") return "議論してください。追放対象はホストが下の操作から選びます。";
     if(phase === "night") return "端末を順番に回して夜アクションを行います。";
@@ -581,6 +639,7 @@ function guide(){
     if(phase === "night") return "全員が端末を順番に回して夜アクションをします。";
     if(phase === "result") return "朝の結果です。確認したら次の日へ進んでください。";
   }
+
   return "";
 }
 
@@ -591,7 +650,7 @@ function renderGame(){
   $("winnerBox").classList.toggle("hidden", !winner);
   $("winnerBox").textContent = winner;
 
-  $("aliveBox").innerHTML = players.map(p=>`
+  $("aliveBox").innerHTML = players.map(p => `
     <span class="badge ${p.alive ? "" : "dead"}">
       ${esc(p.name)}：${p.alive ? "生存" : "死亡"}
     </span>
@@ -599,17 +658,17 @@ function renderGame(){
 
   $("hostPanel").classList.toggle("hidden", gameMode !== "host");
 
-  $("hostPlayers").innerHTML = players.map(p=>`
+  $("hostPlayers").innerHTML = players.map(p => `
     <div class="playerCard ${p.alive ? "" : "dead"}">
       ${esc(p.name)}：${p.role} / ${p.alive ? "生存" : "死亡"}
     </div>
   `).join("");
 
-  $("executeTarget").innerHTML = alivePlayers().map(p=>`
+  $("executeTarget").innerHTML = alivePlayers().map(p => `
     <option value="${p.id}">${esc(p.name)}</option>
   `).join("");
 
-  $("manualTarget").innerHTML = players.map(p=>`
+  $("manualTarget").innerHTML = players.map(p => `
     <option value="${p.id}">${esc(p.name)} / ${p.alive ? "生存" : "死亡"} / ${p.role}</option>
   `).join("");
 
@@ -648,7 +707,8 @@ function toggleHostPlayers(){
 
 function hostExecute(){
   const id = $("executeTarget").value;
-  const p = players.find(x=>x.id===id);
+  const p = players.find(x => x.id === id);
+
   if(!p || !p.alive) return;
 
   p.alive = false;
@@ -657,29 +717,35 @@ function hostExecute(){
 
   winner = judge();
   if(!winner) phase = "night";
+
   renderGame();
 }
 
 function manualKill(){
-  const p = players.find(x=>x.id===$("manualTarget").value);
+  const p = players.find(x => x.id === $("manualTarget").value);
   if(!p) return;
+
   p.alive = false;
   logs.push(p.name + " を死亡にした");
+
   winner = judge();
   renderGame();
 }
 
 function manualRevive(){
-  const p = players.find(x=>x.id===$("manualTarget").value);
+  const p = players.find(x => x.id === $("manualTarget").value);
   if(!p) return;
+
   p.alive = true;
   logs.push(p.name + " を生存に戻した");
+
   winner = judge();
   renderGame();
 }
 
 function goNight(){
   if(winner) return;
+
   phase = "night";
   renderGame();
 }
@@ -689,9 +755,13 @@ function nextDay(){
     renderGame();
     return;
   }
+
   day++;
   phase = "day";
-  players.forEach(p=>p.result="");
+  players.forEach(p => {
+    p.result = "";
+  });
+
   renderGame();
 }
 
@@ -701,6 +771,8 @@ function startVotePass(){
   passPlayers = alivePlayers();
   passIndex = 0;
   tempVotes = {};
+  selectedChoice = "";
+
   show("passScreen");
   renderPassIntro();
 }
@@ -711,7 +783,12 @@ function startNightPass(){
   passPlayers = alivePlayers();
   passIndex = 0;
   tempActions = {};
-  players.forEach(p=>p.result="");
+  selectedChoice = "";
+
+  players.forEach(p => {
+    p.result = "";
+  });
+
   show("passScreen");
   renderPassIntro();
 }
@@ -724,8 +801,11 @@ function renderPassIntro(){
   const p = currentPassPlayer();
 
   if(!p){
-    if(passType === "vote") finishVotePass();
-    else finishNightPass();
+    if(passType === "vote"){
+      finishVotePass();
+    }else{
+      finishNightPass();
+    }
     return;
   }
 
@@ -746,17 +826,20 @@ function renderPassIntro(){
   }
 }
 
-let selectedChoice = "";
-
 function selectChoice(id){
   selectedChoice = id;
-  document.querySelectorAll(".choiceBtn").forEach(btn=>{
+
+  document.querySelectorAll(".choiceBtn").forEach(btn => {
     btn.classList.toggle("selected", btn.dataset.id === id);
   });
 }
 
 function choiceButtons(items, red=false){
-  return items.map(item=>`
+  if(items.length === 0){
+    return `<p class="note">選べる対象がいません。</p>`;
+  }
+
+  return items.map(item => `
     <button type="button" class="choiceBtn ${red ? "redChoice" : ""}" data-id="${item.id}" onclick="selectChoice('${item.id}')">
       ${esc(item.name)}
     </button>
@@ -767,17 +850,20 @@ function renderPassAction(){
   const p = currentPassPlayer();
 
   if(!p){
-    if(passType === "vote") finishVotePass();
-    else finishNightPass();
+    if(passType === "vote"){
+      finishVotePass();
+    }else{
+      finishNightPass();
+    }
     return;
   }
 
+  selectedChoice = "";
   $("passTitle").textContent = p.name + " さんの番です";
   $("passGuide").textContent = "操作が終わったら、次の人へ端末を渡してください。";
 
   if(passType === "vote"){
-    selectedChoice = "";
-    const choices = alivePlayers().filter(x=>x.id !== p.id);
+    const choices = alivePlayers().filter(x => x.id !== p.id);
 
     $("passContent").innerHTML = `
       <p class="note">追放したい人を選んでください。</p>
@@ -788,17 +874,19 @@ function renderPassAction(){
   }
 
   $("passContent").innerHTML = `
-    <div class="roleBox">${esc(roleTextFor(p))}</div>
+    <div class="roleBox ${roleClassFor(p.role)}">${esc(roleTextFor(p))}</div>
     ${nightActionHTML(p)}
   `;
 
   if(isNoNightAbility(p.role)){
     const delay = 3000 + Math.floor(Math.random() * 2001);
     const btn = $("noActionBtn");
+
     if(btn){
       btn.disabled = true;
       btn.textContent = "確認中...";
-      setTimeout(()=>{
+
+      setTimeout(() => {
         btn.disabled = false;
         btn.textContent = "夜を終える";
       }, delay);
@@ -812,10 +900,10 @@ function isNoNightAbility(role){
 
 function nightActionHTML(p){
   const alive = alivePlayers();
-  selectedChoice = "";
 
   if(p.role === "人狼"){
-    const choices = alive.filter(x=>x.role !== "人狼");
+    const choices = alive.filter(x => x.role !== "人狼");
+
     return `
       <p class="note">襲撃対象を選んでください。</p>
       ${choiceButtons(choices, true)}
@@ -824,7 +912,8 @@ function nightActionHTML(p){
   }
 
   if(p.role === "占い師"){
-    const choices = alive.filter(x=>x.id !== p.id);
+    const choices = alive.filter(x => x.id !== p.id);
+
     return `
       <p class="note">占う相手を選んでください。</p>
       ${choiceButtons(choices, false)}
@@ -833,7 +922,8 @@ function nightActionHTML(p){
   }
 
   if(p.role === "騎士"){
-    const choices = alive.filter(x=>x.id !== p.id);
+    const choices = alive.filter(x => x.id !== p.id);
+
     return `
       <p class="note">守る相手を選んでください。自分は守れません。</p>
       ${choiceButtons(choices, false)}
@@ -850,30 +940,42 @@ function nightActionHTML(p){
 
 function submitVote(){
   const p = currentPassPlayer();
+
   if(!selectedChoice){
     alert("投票先を選んでください。");
     return;
   }
+
   tempVotes[p.id] = selectedChoice;
   selectedChoice = "";
   passIndex++;
+
   renderPassIntro();
 }
 
 function finishVotePass(){
   const counts = {};
-  Object.values(tempVotes).forEach(id=>{
+
+  Object.values(tempVotes).forEach(id => {
     counts[id] = (counts[id] || 0) + 1;
   });
 
-  const max = Math.max(...Object.values(counts));
-  const tied = Object.keys(counts).filter(id=>counts[id]===max);
-  const executedId = tied[Math.floor(Math.random()*tied.length)];
-  const p = players.find(x=>x.id===executedId);
+  if(Object.keys(counts).length === 0){
+    show("game");
+    renderGame();
+    return;
+  }
 
-  p.alive = false;
-  lastExecuted = {...p};
-  logs.push(day + "日目：" + p.name + " が追放された");
+  const max = Math.max(...Object.values(counts));
+  const tied = Object.keys(counts).filter(id => counts[id] === max);
+  const executedId = tied[Math.floor(Math.random() * tied.length)];
+  const p = players.find(x => x.id === executedId);
+
+  if(p){
+    p.alive = false;
+    lastExecuted = {...p};
+    logs.push(day + "日目：" + p.name + " が追放された");
+  }
 
   winner = judge();
   phase = winner ? "result" : "night";
@@ -893,7 +995,7 @@ function submitNightAction(){
   }
 
   if(p.role === "占い師"){
-    const t = players.find(x=>x.id===target);
+    const t = players.find(x => x.id === target);
     const isWolf = t && t.role === "人狼";
     const result = t
       ? `${t.name} は ${isWolf ? "人狼" : "人狼ではない"}。`
@@ -926,10 +1028,12 @@ function submitNightAction(){
   }
 
   tempActions[p.id] = target;
+  selectedChoice = "";
   finishCurrentNightPlayer();
 }
 
 function finishCurrentNightPlayer(){
+  selectedChoice = "";
   passIndex++;
   renderPassIntro();
 }
@@ -938,7 +1042,7 @@ function finishNightPass(){
   let killId = "";
   const wolfVotes = {};
 
-  alivePlayers().forEach(p=>{
+  alivePlayers().forEach(p => {
     if(p.role === "人狼" && tempActions[p.id]){
       wolfVotes[tempActions[p.id]] = (wolfVotes[tempActions[p.id]] || 0) + 1;
     }
@@ -946,15 +1050,16 @@ function finishNightPass(){
 
   if(Object.keys(wolfVotes).length){
     const max = Math.max(...Object.values(wolfVotes));
-    const tied = Object.keys(wolfVotes).filter(id=>wolfVotes[id]===max);
-    killId = tied[Math.floor(Math.random()*tied.length)];
+    const tied = Object.keys(wolfVotes).filter(id => wolfVotes[id] === max);
+    killId = tied[Math.floor(Math.random() * tied.length)];
   }
 
-  const knight = alivePlayers().find(p=>p.role==="騎士");
+  const knight = alivePlayers().find(p => p.role === "騎士");
   const guardId = knight ? tempActions[knight.id] : "";
 
   if(killId && killId !== guardId){
-    const killed = players.find(x=>x.id===killId);
+    const killed = players.find(x => x.id === killId);
+
     if(killed){
       killed.alive = false;
       lastKilled = {...killed};
