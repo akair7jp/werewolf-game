@@ -370,7 +370,7 @@ function startSetup(mode){
   gameMode = mode;
   $("setupTitle").textContent = mode === "host"
     ? "ゲームホストありモード：設定"
-    : "ゲームホスト不要モード：設定";
+    : "ゲームホストなしモード：設定";
 
   const saved = loadSettings();
   if(saved && saved.count){
