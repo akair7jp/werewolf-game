@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>人狼ゲーム 完全版</title>
+<title>人狼ゲーム</title>
 <style>
 *{box-sizing:border-box}
 body{
@@ -148,27 +148,27 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
 
 <body>
 <header>
-  <h1>人狼ゲーム 完全版</h1>
-  <div class="note">4〜15人 / 配役自由 / 1台回し / ホストあり・ホスト不要 / 設定保存</div>
+  <h1>人狼ゲーム</h1>
+  <div class="note">Web版</div>
 </header>
 
 <main>
 
 <section id="home" class="card">
-  <h2>モード選択</h2>
-  <button onclick="show('localType')">1つのデバイスを回して遊ぶ</button>
+  <h2>ゲームを開始するには下のボタンを押してください ↓</h2>
+  <button onclick="show('localType')">ゲーム開始(設定)</button>
 </section>
 
 <section id="localType" class="card hidden">
-  <h2>1つのデバイスを回すモード</h2>
+  <h2>ゲームモード</h2>
 
   <button onclick="startSetup('host')">ゲームホストありモード</button>
   <p class="note">
     役職確認と夜アクションは端末を順番に回します。<br>
-    投票・追放はホストが管理します。ホスト用の全プレイヤー表示は折りたたみ式です。
+    投票・追放はホストが管理します。ホストは全プレイヤーの役職を確認できます。
   </p>
 
-  <button class="orange" onclick="startSetup('auto')">ゲームホスト不要モード</button>
+  <button class="orange" onclick="startSetup('auto')">ゲームホストなしモード</button>
   <p class="note">
     役職確認・投票・夜アクションをすべて端末を順番に回して行います。<br>
     追放・襲撃・勝敗判定は自動です。
@@ -267,13 +267,13 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
 const ROLES = ["市民","占い師","霊媒師","騎士","人狼","狂人","狂信者"];
 
 const DESC = {
-  "市民":"特殊能力なし。議論と投票で人狼を探す。",
+  "市民":"特殊能力はありません。",
   "占い師":"夜に1人を占い、人狼かどうか確認できる。",
   "霊媒師":"追放された人が人狼かどうか確認できる。",
-  "騎士":"夜に1人を守れる。ただし、このルールでは自分を守れない。",
-  "人狼":"夜に人狼同士で相談し、1人を襲撃する。",
-  "狂人":"人狼陣営。人狼が誰かは分からない。",
-  "狂信者":"人狼陣営。人狼が誰か分かる。"
+  "騎士":"夜に1人を守れる。ただし、自分は守れない。",
+  "人狼":"市民をを襲撃する。",
+  "狂人":"＜人狼陣営＞人狼が誰かは分からない。",
+  "狂信者":"＜人狼陣営＞人狼が誰か分かる。"
 };
 
 const SAVE_KEY = "werewolf_local_settings_v2";
