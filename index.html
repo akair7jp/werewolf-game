@@ -75,6 +75,37 @@ button:disabled{opacity:.55;cursor:not-allowed}
   font-weight:900;
   margin:14px 0;
 }
+.roleVillage{
+  background:#052e2b;
+  border-color:#22c55e;
+  color:#ecfdf5;
+}
+.roleWolf{
+  background:#450a0a;
+  border-color:#ef4444;
+  color:#fef2f2;
+}
+.choiceBtn{
+  background:#111827;
+  border:1px solid #64748b;
+  text-align:left;
+}
+.choiceBtn.selected{
+  background:#2563eb;
+  border-color:#93c5fd;
+}
+.choiceBtn.redChoice.selected{
+  background:#dc2626;
+  border-color:#fecaca;
+}
+.nameRow{
+  display:grid;
+  grid-template-columns:1fr 48px 48px;
+  gap:8px;
+  align-items:center;
+}
+.nameRow input{margin:7px 0}
+.nameRow button{margin:7px 0;padding:12px 0}
 .resultBox{
   white-space:pre-line;
   text-align:center;
@@ -159,9 +190,9 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
     <h2>役職人数</h2>
     <p class="note">役職の合計がプレイヤー人数と同じになるようにしてください。</p>
     <div id="roleInputs" class="grid"></div>
+    <button onclick="startGame()">ゲーム開始</button>
     <button class="green" onclick="setRecommendedRoles()">おすすめ配役にする</button>
     <button class="gray" onclick="clearSavedSettings()">保存した設定を削除</button>
-    <button onclick="startGame()">ゲーム開始</button>
     <button class="gray" onclick="show('localType')">戻る</button>
   </div>
 </section>
@@ -306,9 +337,17 @@ function loadSettings(){
 }
 
 function clearSavedSettings(){
-  localStorage.removeItem(SAVE_KEY);
+  try{
+    localStorage.removeItem(SAVE_KEY);
+  }catch(e){
+    console.warn("設定削除に失敗しました", e);
+  }
+
+  $("playerCount").value = 6;
+  $("playerInputs").innerHTML = "";
+  $("roleInputs").innerHTML = "";
+  applyPlayerCount(true);
   alert("保存した設定を削除しました。");
-  applyPlayerCount();
 }
 
 function startSetup(mode){
@@ -345,22 +384,44 @@ function recommendedRoles(n){
   return r;
 }
 
-function applyPlayerCount(){
+function applyPlayerCount(forceDefault=false){
   const n = clampCount();
-  const saved = loadSettings();
+  const saved = forceDefault ? null : loadSettings();
   const old = [...document.querySelectorAll("#playerInputs input")].map(x=>x.value);
-  const names = old.length ? old : (saved?.names || []);
+  const names = forceDefault ? [] : (old.length ? old : (saved?.names || []));
 
   $("playerInputs").innerHTML = "";
 
   for(let i=0;i<n;i++){
     const div = document.createElement("div");
-    div.innerHTML = `<input id="player${i}" placeholder="プレイヤー名" value="${esc(names[i] || "プレイヤー" + (i+1))}" oninput="saveSettings()">`;
+    div.className = "nameRow";
+    div.innerHTML = `
+      <input id="player${i}" placeholder="プレイヤー名" value="${esc(names[i] || "プレイヤー" + (i+1))}" oninput="saveSettings()">
+      <button class="gray" type="button" onclick="movePlayer(${i},-1)" ${i===0 ? "disabled" : ""}>↑</button>
+      <button class="gray" type="button" onclick="movePlayer(${i},1)" ${i===n-1 ? "disabled" : ""}>↓</button>
+    `;
     $("playerInputs").appendChild(div);
   }
 
-  makeRoleInputs(n, saved?.roles || null);
+  makeRoleInputs(n, forceDefault ? null : (saved?.roles || null));
   saveSettings();
+}
+
+function movePlayer(index, direction){
+  const inputs = [...document.querySelectorAll("#playerInputs input")];
+  const names = inputs.map(x=>x.value);
+  const target = index + direction;
+
+  if(target < 0 || target >= names.length) return;
+
+  [names[index], names[target]] = [names[target], names[index]];
+
+  inputs.forEach((input,i)=>{
+    input.value = names[i];
+  });
+
+  saveSettings();
+  applyPlayerCount();
 }
 
 function makeRoleInputs(n, savedRoles=null){
@@ -443,10 +504,18 @@ function startGame(){
 function setupReveal(){
   const p = players[revealIndex];
   $("revealName").textContent = p.name + " さんの番です";
-  $("revealBox").classList.add("hidden");
+  $("revealBox").className = "roleBox hidden";
   $("revealBox").textContent = "";
   $("revealBtn").classList.remove("hidden");
   $("revealNextBtn").classList.add("hidden");
+}
+
+function roleTeam(role){
+  return role === "人狼" || role === "狂人" || role === "狂信者" ? "wolf" : "village";
+}
+
+function roleClassFor(role){
+  return roleTeam(role) === "wolf" ? "roleWolf" : "roleVillage";
 }
 
 function roleTextFor(p){
@@ -465,8 +534,9 @@ function roleTextFor(p){
 }
 
 function showRole(){
-  $("revealBox").textContent = roleTextFor(players[revealIndex]);
-  $("revealBox").classList.remove("hidden");
+  const p = players[revealIndex];
+  $("revealBox").textContent = roleTextFor(p);
+  $("revealBox").className = "roleBox " + roleClassFor(p.role);
   $("revealBtn").classList.add("hidden");
   $("revealNextBtn").classList.remove("hidden");
 }
@@ -676,6 +746,23 @@ function renderPassIntro(){
   }
 }
 
+let selectedChoice = "";
+
+function selectChoice(id){
+  selectedChoice = id;
+  document.querySelectorAll(".choiceBtn").forEach(btn=>{
+    btn.classList.toggle("selected", btn.dataset.id === id);
+  });
+}
+
+function choiceButtons(items, red=false){
+  return items.map(item=>`
+    <button type="button" class="choiceBtn ${red ? "redChoice" : ""}" data-id="${item.id}" onclick="selectChoice('${item.id}')">
+      ${esc(item.name)}
+    </button>
+  `).join("");
+}
+
 function renderPassAction(){
   const p = currentPassPlayer();
 
@@ -689,14 +776,12 @@ function renderPassAction(){
   $("passGuide").textContent = "操作が終わったら、次の人へ端末を渡してください。";
 
   if(passType === "vote"){
-    const opts = alivePlayers()
-      .filter(x=>x.id !== p.id)
-      .map(x=>`<option value="${x.id}">${esc(x.name)}</option>`)
-      .join("");
+    selectedChoice = "";
+    const choices = alivePlayers().filter(x=>x.id !== p.id);
 
     $("passContent").innerHTML = `
       <p class="note">追放したい人を選んでください。</p>
-      <select id="passTarget">${opts}</select>
+      ${choiceButtons(choices, true)}
       <button class="red" onclick="submitVote()">投票する</button>
     `;
     return;
@@ -727,42 +812,31 @@ function isNoNightAbility(role){
 
 function nightActionHTML(p){
   const alive = alivePlayers();
+  selectedChoice = "";
 
   if(p.role === "人狼"){
-    const opts = alive
-      .filter(x=>x.role !== "人狼")
-      .map(x=>`<option value="${x.id}">${esc(x.name)}</option>`)
-      .join("");
-
+    const choices = alive.filter(x=>x.role !== "人狼");
     return `
       <p class="note">襲撃対象を選んでください。</p>
-      <select id="passTarget">${opts}</select>
+      ${choiceButtons(choices, true)}
       <button class="red" onclick="submitNightAction()">襲撃する</button>
     `;
   }
 
   if(p.role === "占い師"){
-    const opts = alive
-      .filter(x=>x.id !== p.id)
-      .map(x=>`<option value="${x.id}">${esc(x.name)}</option>`)
-      .join("");
-
+    const choices = alive.filter(x=>x.id !== p.id);
     return `
       <p class="note">占う相手を選んでください。</p>
-      <select id="passTarget">${opts}</select>
+      ${choiceButtons(choices, false)}
       <button class="green" onclick="submitNightAction()">占う</button>
     `;
   }
 
   if(p.role === "騎士"){
-    const opts = alive
-      .filter(x=>x.id !== p.id)
-      .map(x=>`<option value="${x.id}">${esc(x.name)}</option>`)
-      .join("");
-
+    const choices = alive.filter(x=>x.id !== p.id);
     return `
       <p class="note">守る相手を選んでください。自分は守れません。</p>
-      <select id="passTarget">${opts}</select>
+      ${choiceButtons(choices, false)}
       <button class="green" onclick="submitNightAction()">守る</button>
     `;
   }
@@ -776,7 +850,12 @@ function nightActionHTML(p){
 
 function submitVote(){
   const p = currentPassPlayer();
-  tempVotes[p.id] = $("passTarget").value;
+  if(!selectedChoice){
+    alert("投票先を選んでください。");
+    return;
+  }
+  tempVotes[p.id] = selectedChoice;
+  selectedChoice = "";
   passIndex++;
   renderPassIntro();
 }
@@ -805,7 +884,13 @@ function finishVotePass(){
 
 function submitNightAction(){
   const p = currentPassPlayer();
-  const target = $("passTarget") ? $("passTarget").value : "done";
+  const needsTarget = p.role === "人狼" || p.role === "占い師" || p.role === "騎士";
+  const target = needsTarget ? selectedChoice : "done";
+
+  if(needsTarget && !target){
+    alert("対象を選んでください。");
+    return;
+  }
 
   if(p.role === "占い師"){
     const t = players.find(x=>x.id===target);
