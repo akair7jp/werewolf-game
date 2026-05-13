@@ -193,7 +193,7 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
 <section id="setup" class="hidden">
   <div class="card">
     <h2 id="setupTitle">ゲーム設定</h2>
-    <label>人数 ４〜１５人</label>
+    <label>人数 4〜15人</label>
     <input id="playerCount" type="number" min="4" max="15" value="6" onchange="applyPlayerCount()" oninput="saveSettings()">
     <button onclick="applyPlayerCount()">人数を反映</button>
     <p class="note">プレイヤー名の右にある ↑ ↓ で順番を入れ替えできます。</p>
@@ -341,6 +341,7 @@ let selectedChoice = "";
 let dayTimerSeconds = 300;
 let dayTimerInterval = null;
 let timerDayKey = "";
+let breadGoneLogged = false;
 
 function show(id){
   ["home","localType","setup","reveal","game","passScreen"].forEach(x => {
@@ -635,6 +636,7 @@ function startGame(){
   phase = "day";
   timerDayKey = "";
   dayTimerSeconds = 300;
+  breadGoneLogged = false;
   logs = ["ゲーム開始"];
   winner = "";
   lastExecuted = null;
@@ -922,6 +924,25 @@ function goNight(){
   renderGame();
 }
 
+function addBreadMorningLog(){
+  if(day < 2) return;
+
+  const bakers = players.filter(p => p.role === "パン屋");
+  if(bakers.length === 0) return;
+
+  const aliveBakers = bakers.filter(p => p.alive);
+
+  if(aliveBakers.length > 0){
+    logs.push(day + "日目朝：パン屋がおいしいパンを焼いてくれたそうです。");
+    return;
+  }
+
+  if(!breadGoneLogged){
+    logs.push(day + "日目朝：今日からはもうおいしいパンが食べられません。");
+    breadGoneLogged = true;
+  }
+}
+
 function nextDay(){
   if(winner){
     renderGame();
@@ -1060,7 +1081,7 @@ function renderPassAction(){
     ${nightActionHTML(p)}
   `;
 
-  if(isNoNightAbility(p.role)){
+  if(isNoNightAbility(p.role) || (day === 1 && p.role !== "占い師")){
     const delay = 3000 + Math.floor(Math.random() * 2001);
     const btn = $("noActionBtn");
 
@@ -1313,6 +1334,8 @@ function finishNightPass(){
 
   winner = judge();
   phase = "result";
+
+  addBreadMorningLog();
 
   show("game");
   renderGame();
