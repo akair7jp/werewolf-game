@@ -168,7 +168,7 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
 <main>
 
 <section id="home" class="card">
-  <h2>ゲームを開始するには下のボタンを押してください↓</h2>
+  <h2>ゲームを開始するには下のボタンを押してください ↓</h2>
   <button onclick="show('localType')">ゲーム開始（設定）</button>
 </section>
 
@@ -788,6 +788,10 @@ function phaseName(){
   }[phase] || phase;
 }
 
+function displayDay(){
+  return phase === "result" ? day + 1 : day;
+}
+
 function guide(){
   if(winner) return "ゲーム終了です。";
 
@@ -806,7 +810,7 @@ function guide(){
 }
 
 function renderGame(){
-  $("phaseText").textContent = winner ? "ゲーム終了" : day + "日目：" + phaseName();
+  $("phaseText").textContent = winner ? "ゲーム終了" : displayDay() + "日目：" + phaseName();
   $("guideText").textContent = guide();
 
   $("dayTimerBox").classList.toggle("hidden", phase !== "day" || !!winner);
@@ -925,7 +929,9 @@ function goNight(){
 }
 
 function addBreadMorningLog(){
-  if(day < 2) return;
+  const morningDay = day + 1;
+
+  if(morningDay < 2) return;
 
   const bakers = players.filter(p => p.role === "パン屋");
   if(bakers.length === 0) return;
@@ -933,12 +939,12 @@ function addBreadMorningLog(){
   const aliveBakers = bakers.filter(p => p.alive);
 
   if(aliveBakers.length > 0){
-    logs.push(day + "日目朝：パン屋がおいしいパンを焼いてくれたそうです。");
+    logs.push(morningDay + "日目朝：パン屋がおいしいパンを焼いてくれたそうです。");
     return;
   }
 
   if(!breadGoneLogged){
-    logs.push(day + "日目朝：今日からはもうおいしいパンが食べられません。");
+    logs.push(morningDay + "日目朝：今日からはもうおいしいパンが食べられません。");
     breadGoneLogged = true;
   }
 }
@@ -1111,7 +1117,7 @@ function nightActionHTML(p){
 
   if(!canUseNightAbilityOnCurrentNight(p)){
     return `
-      <p class="note">初夜のため、この役職は特殊能力を使えません。</p>
+      <p class="note">初夜のため、(一部役職を除く)特殊能力は使用いただけません。</p>
       <button id="noActionBtn" onclick="submitNightAction()">夜を終える</button>
     `;
   }
