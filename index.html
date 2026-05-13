@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>人狼ゲーム</title>
+<title>人狼ゲーム 完全版</title>
 <style>
 *{box-sizing:border-box}
 body{
@@ -121,6 +121,19 @@ button:disabled{opacity:.5;cursor:not-allowed}
   overflow:auto;
 }
 .big{font-size:23px;font-weight:900}
+.timerBox{
+  background:#020617;
+  border:1px solid #60a5fa;
+  border-radius:14px;
+  padding:14px;
+  margin:12px 0;
+  text-align:center;
+}
+.timerText{
+  font-size:34px;
+  font-weight:900;
+  letter-spacing:1px;
+}
 hr{border:0;border-top:1px solid #374151;margin:14px 0}
 .nameRow{
   display:grid;
@@ -148,24 +161,24 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
 
 <body>
 <header>
-  <h1>人狼ゲーム</h1>
-  <div class="note">Web版</div>
+  <h1>人狼ゲーム 完全版</h1>
+  <div class="note">4〜15人 / 追加役職対応 / 配役自由 / 1台回し / ホストあり・ホストなし / 設定保存</div>
 </header>
 
 <main>
 
 <section id="home" class="card">
-  <h2>ゲームを開始するには下のボタンを押してください ↓</h2>
-  <button onclick="show('localType')">ゲーム開始(設定)</button>
+  <h2>モード選択</h2>
+  <button onclick="show('localType')">1つのデバイスを回して遊ぶ</button>
 </section>
 
 <section id="localType" class="card hidden">
-  <h2>ゲームモード</h2>
+  <h2>1つのデバイスを回すモード</h2>
 
   <button onclick="startSetup('host')">ゲームホストありモード</button>
   <p class="note">
     役職確認と夜アクションは端末を順番に回します。<br>
-    投票・追放はホストが管理します。ホストは全プレイヤーの役職を確認できます。
+    投票・追放はホストが管理します。ホスト用の全プレイヤー表示は折りたたみ式です。
   </p>
 
   <button class="orange" onclick="startSetup('auto')">ゲームホストなしモード</button>
@@ -214,6 +227,10 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
     <h2>ゲーム進行</h2>
     <div class="big" id="phaseText"></div>
     <p id="guideText" class="note"></p>
+    <div id="dayTimerBox" class="timerBox hidden">
+      <div class="note">昼の議論タイマー</div>
+      <div id="dayTimerText" class="timerText">5:00</div>
+    </div>
     <div id="winnerBox" class="roleBox hidden"></div>
     <div id="mainAction"></div>
   </div>
@@ -264,16 +281,32 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
 </main>
 
 <script>
-const ROLES = ["市民","占い師","霊媒師","騎士","人狼","狂人","狂信者"];
+const ROLES = [
+  "市民",
+  "占い師",
+  "霊媒師",
+  "騎士",
+  "恋人",
+  "パン屋",
+  "人狼",
+  "狂人",
+  "狂信者",
+  "復讐者",
+  "吸血鬼"
+];
 
 const DESC = {
   "市民":"特殊能力はありません。",
   "占い師":"夜に1人を占い、人狼かどうか確認できる。",
   "霊媒師":"追放された人が人狼かどうか確認できる。",
   "騎士":"夜に1人を守れる。ただし、自分は守れない。",
-  "人狼":"市民をを襲撃する。",
+  "恋人":"お互いに把握することができる。",
+  "パン屋":"パンを焼ける市民。",
+  "人狼":"＜人狼陣営＞市民を襲撃する。",
   "狂人":"＜人狼陣営＞人狼が誰かは分からない。",
-  "狂信者":"＜人狼陣営＞人狼が誰か分かる。"
+  "狂信者":"＜人狼陣営＞人狼が誰か分かる。",
+  "復讐者":"＜独立した陣営＞一度だけ夜の行動で一人を選んで仇敵にする。どこかの陣営が勝利した時に、仇敵は死亡していて、自分は生存していれば追加勝利となる。最後まで仇敵を選ばないと、敗北する。",
+  "吸血鬼":"＜独立した陣営＞ゲーム終了時に生き残ることによって勝利を収めることができる。"
 };
 
 const SAVE_KEY = "werewolf_local_settings_v2";
@@ -305,16 +338,71 @@ let passPlayers = [];
 let tempVotes = {};
 let tempActions = {};
 let selectedChoice = "";
+let dayTimerSeconds = 300;
+let dayTimerInterval = null;
+let timerDayKey = "";
 
 function show(id){
   ["home","localType","setup","reveal","game","passScreen"].forEach(x => {
     $(x).classList.add("hidden");
   });
   $(id).classList.remove("hidden");
+
+  if(id !== "game"){
+    stopDayTimer();
+  }
 }
 
 function resetPage(){
   location.reload();
+}
+
+function formatTimer(seconds){
+  const s = Math.max(0, seconds);
+  const m = Math.floor(s / 60);
+  const rest = s % 60;
+  return m + ":" + String(rest).padStart(2, "0");
+}
+
+function stopDayTimer(){
+  if(dayTimerInterval){
+    clearInterval(dayTimerInterval);
+    dayTimerInterval = null;
+  }
+}
+
+function startDayTimerIfNeeded(){
+  const key = day + ":" + phase;
+
+  if(phase !== "day" || winner){
+    stopDayTimer();
+    return;
+  }
+
+  if(timerDayKey !== key){
+    timerDayKey = key;
+    dayTimerSeconds = 300;
+  }
+
+  stopDayTimer();
+
+  const text = $("dayTimerText");
+  if(text){
+    text.textContent = formatTimer(dayTimerSeconds);
+  }
+
+  dayTimerInterval = setInterval(() => {
+    dayTimerSeconds = Math.max(0, dayTimerSeconds - 1);
+
+    const timerText = $("dayTimerText");
+    if(timerText){
+      timerText.textContent = formatTimer(dayTimerSeconds);
+    }
+
+    if(dayTimerSeconds <= 0){
+      stopDayTimer();
+    }
+  }, 1000);
 }
 
 function saveSettings(){
@@ -395,15 +483,20 @@ function recommendedRoles(n){
     "占い師":1,
     "霊媒師":0,
     "騎士":0,
+    "恋人":0,
+    "パン屋":0,
     "人狼":1,
     "狂人":0,
-    "狂信者":0
+    "狂信者":0,
+    "復讐者":0,
+    "吸血鬼":0
   };
 
   if(n >= 5) r["騎士"] = 1;
   if(n >= 7) r["霊媒師"] = 1;
   if(n >= 8) r["人狼"] = 2;
   if(n >= 9) r["狂人"] = 1;
+  if(n >= 10) r["パン屋"] = 1;
   if(n >= 12) r["人狼"] = 3;
   if(n >= 14){
     r["狂人"] = 0;
@@ -528,13 +621,20 @@ function startGame(){
       name:$("player"+i).value.trim() || "プレイヤー" + (i+1),
       role:roles[i],
       alive:true,
-      result:""
+      result:"",
+      loverId:"",
+      revengeTargetId:"",
+      revengeUsed:false
     });
   }
+
+  setupSpecialRoles();
 
   revealIndex = 0;
   day = 1;
   phase = "day";
+  timerDayKey = "";
+  dayTimerSeconds = 300;
   logs = ["ゲーム開始"];
   winner = "";
   lastExecuted = null;
@@ -542,6 +642,22 @@ function startGame(){
 
   show("reveal");
   setupReveal();
+}
+
+function setupSpecialRoles(){
+  const lovers = players.filter(p => p.role === "恋人");
+
+  for(let i=0;i<lovers.length;i+=2){
+    if(lovers[i] && lovers[i+1]){
+      lovers[i].loverId = lovers[i+1].id;
+      lovers[i+1].loverId = lovers[i].id;
+    }
+  }
+}
+
+function getPlayerNameById(id){
+  const p = players.find(x => x.id === id);
+  return p ? p.name : "";
 }
 
 function setupReveal(){
@@ -554,13 +670,15 @@ function setupReveal(){
 }
 
 function roleTeam(role){
-  return role === "人狼" || role === "狂人" || role === "狂信者"
-    ? "wolf"
-    : "village";
+  if(role === "人狼" || role === "狂人" || role === "狂信者") return "wolf";
+  if(role === "復讐者" || role === "吸血鬼") return "independent";
+  return "village";
 }
 
 function roleClassFor(role){
-  return roleTeam(role) === "wolf" ? "roleWolf" : "roleVillage";
+  if(roleTeam(role) === "wolf") return "roleWolf";
+  if(roleTeam(role) === "independent") return "roleWolf";
+  return "roleVillage";
 }
 
 function roleTextFor(p){
@@ -573,6 +691,24 @@ function roleTextFor(p){
       .join("、");
 
     text += "\n\n人狼：" + wolves;
+  }
+
+  if(p.role === "恋人"){
+    const loverName = getPlayerNameById(p.loverId);
+    text += loverName
+      ? "\n\n恋人：" + loverName
+      : "\n\n恋人：まだペアがいません。";
+  }
+
+  if(p.role === "復讐者"){
+    const targetName = getPlayerNameById(p.revengeTargetId);
+    text += targetName
+      ? "\n\n仇敵：" + targetName
+      : "\n\n仇敵：未選択";
+  }
+
+  if(p.role === "吸血鬼"){
+    text += "\n\n勝利条件：ゲーム終了時に生存していること。";
   }
 
   if(p.result){
@@ -607,14 +743,38 @@ function alivePlayers(){
   return players.filter(p => p.alive);
 }
 
-function judge(){
+function baseWinner(){
   const alive = alivePlayers();
   const wolves = alive.filter(p => p.role === "人狼").length;
-  const others = alive.length - wolves;
+  const villagers = alive.filter(p => roleTeam(p.role) === "village").length;
 
   if(wolves === 0) return "市民陣営の勝利";
-  if(wolves >= others) return "人狼陣営の勝利";
+  if(wolves >= villagers) return "人狼陣営の勝利";
   return "";
+}
+
+function judge(){
+  const base = baseWinner();
+  if(!base) return "";
+
+  const additions = [];
+
+  players.forEach(p => {
+    if(p.role === "吸血鬼" && p.alive){
+      additions.push(`${p.name}（吸血鬼）の追加勝利`);
+    }
+
+    if(p.role === "復讐者"){
+      const target = players.find(x => x.id === p.revengeTargetId);
+      if(p.alive && target && !target.alive){
+        additions.push(`${p.name}（復讐者）の追加勝利`);
+      }
+    }
+  });
+
+  return additions.length
+    ? base + "\n" + additions.join("\n")
+    : base;
 }
 
 function phaseName(){
@@ -646,6 +806,15 @@ function guide(){
 function renderGame(){
   $("phaseText").textContent = winner ? "ゲーム終了" : day + "日目：" + phaseName();
   $("guideText").textContent = guide();
+
+  $("dayTimerBox").classList.toggle("hidden", phase !== "day" || !!winner);
+  $("dayTimerText").textContent = formatTimer(dayTimerSeconds);
+
+  if(phase === "day" && !winner){
+    startDayTimerIfNeeded();
+  }else{
+    stopDayTimer();
+  }
 
   $("winnerBox").classList.toggle("hidden", !winner);
   $("winnerBox").textContent = winner;
@@ -688,7 +857,10 @@ function renderGame(){
     }
   }else{
     if(phase === "day"){
-      html = `<button onclick="startVotePass()">投票を開始</button>`;
+      html = `
+        <button onclick="startVotePass()">投票を開始</button>
+        <button class="gray" onclick="skipVoteToNight()">投票をスキップして夜へ</button>
+      `;
     }else if(phase === "vote"){
       html = `<button onclick="startVotePass()">投票を開始</button>`;
     }else if(phase === "night"){
@@ -758,10 +930,20 @@ function nextDay(){
 
   day++;
   phase = "day";
+  timerDayKey = "";
+  dayTimerSeconds = 300;
   players.forEach(p => {
     p.result = "";
   });
 
+  renderGame();
+}
+
+function skipVoteToNight(){
+  if(gameMode !== "auto" || phase !== "day" || winner) return;
+
+  logs.push(day + "日目：投票をスキップした");
+  phase = "night";
   renderGame();
 }
 
@@ -895,11 +1077,23 @@ function renderPassAction(){
 }
 
 function isNoNightAbility(role){
-  return role === "市民" || role === "狂人" || role === "狂信者";
+  return role === "市民" || role === "狂人" || role === "狂信者" || role === "恋人" || role === "パン屋" || role === "吸血鬼";
+}
+
+function canUseNightAbilityOnCurrentNight(p){
+  if(day !== 1) return true;
+  return p.role === "占い師";
 }
 
 function nightActionHTML(p){
   const alive = alivePlayers();
+
+  if(!canUseNightAbilityOnCurrentNight(p)){
+    return `
+      <p class="note">初夜のため、この役職は特殊能力を使えません。</p>
+      <button id="noActionBtn" onclick="submitNightAction()">夜を終える</button>
+    `;
+  }
 
   if(p.role === "人狼"){
     const choices = alive.filter(x => x.role !== "人狼");
@@ -928,6 +1122,25 @@ function nightActionHTML(p){
       <p class="note">守る相手を選んでください。自分は守れません。</p>
       ${choiceButtons(choices, false)}
       <button class="green" onclick="submitNightAction()">守る</button>
+    `;
+  }
+
+  if(p.role === "復讐者"){
+    if(p.revengeUsed || p.revengeTargetId){
+      const targetName = getPlayerNameById(p.revengeTargetId);
+      return `
+        <p class="note">すでに仇敵を選択済みです。</p>
+        <div class="resultBox resultWolf">仇敵\n${esc(targetName || "不明")}</div>
+        <button onclick="submitNightAction()">夜を終える</button>
+      `;
+    }
+
+    const choices = alive.filter(x => x.id !== p.id);
+
+    return `
+      <p class="note">仇敵にする相手を1人選んでください。この行動は一度だけです。</p>
+      ${choiceButtons(choices, true)}
+      <button class="red" onclick="submitNightAction()">仇敵にする</button>
     `;
   }
 
@@ -986,11 +1199,20 @@ function finishVotePass(){
 
 function submitNightAction(){
   const p = currentPassPlayer();
-  const needsTarget = p.role === "人狼" || p.role === "占い師" || p.role === "騎士";
+  const canUseAbility = canUseNightAbilityOnCurrentNight(p);
+  const revengeNeedsTarget = canUseAbility && p.role === "復讐者" && !p.revengeUsed && !p.revengeTargetId;
+  const needsTarget = canUseAbility && (p.role === "人狼" || p.role === "占い師" || p.role === "騎士" || revengeNeedsTarget);
   const target = needsTarget ? selectedChoice : "done";
 
   if(needsTarget && !target){
     alert("対象を選んでください。");
+    return;
+  }
+
+  if(!canUseAbility){
+    tempActions[p.id] = "done";
+    selectedChoice = "";
+    finishCurrentNightPlayer();
     return;
   }
 
@@ -1008,6 +1230,26 @@ function submitNightAction(){
       <div class="resultBox ${isWolf ? "resultWolf" : "resultVillage"}">占い結果\n${esc(result)}</div>
       <button class="green" onclick="finishCurrentNightPlayer()">結果を隠して次の人へ</button>
     `;
+    return;
+  }
+
+  if(p.role === "復讐者"){
+    if(target !== "done"){
+      const t = players.find(x => x.id === target);
+      p.revengeTargetId = target;
+      p.revengeUsed = true;
+      p.result = t ? `${t.name} を仇敵にした。` : "仇敵を選択した。";
+      tempActions[p.id] = target;
+
+      $("passContent").innerHTML = `
+        <div class="resultBox resultWolf">復讐者の行動\n${esc(p.result)}</div>
+        <button class="green" onclick="finishCurrentNightPlayer()">結果を隠して次の人へ</button>
+      `;
+      return;
+    }
+
+    tempActions[p.id] = "done";
+    finishCurrentNightPlayer();
     return;
   }
 
