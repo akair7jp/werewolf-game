@@ -169,11 +169,11 @@ hr{border:0;border-top:1px solid #374151;margin:14px 0}
 
 <section id="home" class="card">
   <h2>ゲームを開始するには下のボタンを押してください ↓</h2>
-  <button onclick="show('localType')">ゲーム開始（設定）</button>
+  <button onclick="show('localType')">1つのデバイスを回して遊ぶ</button>
 </section>
 
 <section id="localType" class="card hidden">
-  <h2>ゲームモード</h2>
+  <h2>ゲーム開始（設定）</h2>
 
   <button onclick="startSetup('host')">ゲームホストありモード</button>
   <p class="note">
@@ -292,7 +292,8 @@ const ROLES = [
   "狂人",
   "狂信者",
   "復讐者",
-  "吸血鬼"
+  "吸血鬼",
+  "妖狐"
 ];
 
 const DESC = {
@@ -306,7 +307,8 @@ const DESC = {
   "狂人":"＜人狼陣営＞人狼が誰かは分からない。",
   "狂信者":"＜人狼陣営＞人狼が誰か分かる。",
   "復讐者":"＜独立した陣営＞一度だけ夜の行動で一人を選んで仇敵にする。どこかの陣営が勝利した時に、仇敵は死亡していて、自分は生存していれば追加勝利となる。最後まで仇敵を選ばないと、敗北する。",
-  "吸血鬼":"＜独立した陣営＞ゲーム終了時に生き残ることによって勝利を収めることができる。"
+  "吸血鬼":"＜独立した陣営＞ゲーム終了時に生き残ることによって勝利を収めることができる。",
+  "妖狐":"夜の行動で人狼に襲撃されても死亡しません｡"
 };
 
 const SAVE_KEY = "werewolf_local_settings_v2";
@@ -490,7 +492,8 @@ function recommendedRoles(n){
     "狂人":0,
     "狂信者":0,
     "復讐者":0,
-    "吸血鬼":0
+    "吸血鬼":0,
+    "妖狐":0
   };
 
   if(n >= 5) r["騎士"] = 1;
@@ -673,7 +676,7 @@ function setupReveal(){
 
 function roleTeam(role){
   if(role === "人狼" || role === "狂人" || role === "狂信者") return "wolf";
-  if(role === "復讐者" || role === "吸血鬼") return "independent";
+  if(role === "復讐者" || role === "吸血鬼" || role === "妖狐") return "independent";
   return "village";
 }
 
@@ -711,6 +714,10 @@ function roleTextFor(p){
 
   if(p.role === "吸血鬼"){
     text += "\n\n勝利条件：ゲーム終了時に生存していること。";
+  }
+
+  if(p.role === "妖狐"){
+    text += "\n\n特徴：人狼に襲撃されても死亡しない。";
   }
 
   if(p.result){
@@ -764,6 +771,10 @@ function judge(){
   players.forEach(p => {
     if(p.role === "吸血鬼" && p.alive){
       additions.push(`${p.name}（吸血鬼）の追加勝利`);
+    }
+
+    if(p.role === "妖狐" && p.alive){
+      additions.push(`${p.name}（妖狐）の追加勝利`);
     }
 
     if(p.role === "復讐者"){
@@ -1104,7 +1115,7 @@ function renderPassAction(){
 }
 
 function isNoNightAbility(role){
-  return role === "市民" || role === "狂人" || role === "狂信者" || role === "恋人" || role === "パン屋" || role === "吸血鬼";
+  return role === "市民" || role === "狂人" || role === "狂信者" || role === "恋人" || role === "パン屋" || role === "吸血鬼" || role === "妖狐";
 }
 
 function canUseNightAbilityOnCurrentNight(p){
@@ -1117,7 +1128,7 @@ function nightActionHTML(p){
 
   if(!canUseNightAbilityOnCurrentNight(p)){
     return `
-      <p class="note">初夜のため、(一部役職を除く)特殊能力は使用いただけません。</p>
+      <p class="note">初夜のため、この役職は特殊能力を使えません。</p>
       <button id="noActionBtn" onclick="submitNightAction()">夜を終える</button>
     `;
   }
@@ -1330,9 +1341,13 @@ function finishNightPass(){
     const killed = players.find(x => x.id === killId);
 
     if(killed){
-      killed.alive = false;
-      lastKilled = {...killed};
-      logs.push(day + "日目夜：" + killed.name + " が襲撃された");
+      if(killed.role === "妖狐"){
+        logs.push(day + "日目夜：襲撃は失敗した");
+      }else{
+        killed.alive = false;
+        lastKilled = {...killed};
+        logs.push(day + "日目夜：" + killed.name + " が襲撃された");
+      }
     }
   }else{
     logs.push(day + "日目夜：襲撃は失敗した");
