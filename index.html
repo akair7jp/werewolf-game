@@ -863,7 +863,7 @@ function renderGame(){
   let html = "";
 
   if(winner){
-    html = `<button class="green" onclick="resetPage()">最初から</button>`;
+    html = `<button class="green" onclick="resetPage()">ゲームモード選択画面に戻る</button>`;
   }else if(gameMode === "host"){
     if(phase === "day"){
       html = `<button class="green" onclick="goNight()">夜アクションへ進む</button>`;
